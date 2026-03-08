@@ -142,7 +142,7 @@
                             <span class="text-accent text-5xl md:text-7xl lg:text-8xl mt-4 block">视觉专家</span>
                         </h1>
                         <p class="text-base md:text-xl font-light text-gray-400 max-w-2xl leading-relaxed">
-                            12年资深三维动态视觉设计师 / 专注于 C4D 全流程设计、产品动效演示与电影级视觉包装。
+                            6年资深三维动态视觉设计师 / 专注于 C4D 全流程设计、产品动效演示与电影级视觉包装。
                         </p>
                     </div>
                     <div class="mt-12 lg:mt-0 flex flex-col items-start lg:items-end">
@@ -173,14 +173,14 @@
                 </div>
             </section>
 
-            <!-- 作品选集 -->
+            <!-- 深度分类：作品选集 -->
             <section class="max-w-7xl mx-auto px-6 py-24 premium-border-t">
                 <div class="flex flex-col md:flex-row justify-between items-baseline mb-16 reveal">
                     <h2 class="text-4xl md:text-5xl font-black uppercase tracking-tighter">作品选集 <span class="text-sm font-bold text-gray-700 ml-4 tracking-widest">SELECTED WORKS</span></h2>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="works-grid">
-                    <!-- 作品由脚本生成 -->
-                </div>
+                
+                <!-- 分类容器：由 JS 渲染 -->
+                <div id="home-categories-container"></div>
             </section>
 
             <!-- 底部 -->
@@ -196,6 +196,28 @@
                     </div>
                 </div>
             </footer>
+        </main>
+
+        <!-- ================= 独立分类列表页 ================= -->
+        <main id="view-category" class="view-hidden">
+            <div class="max-w-7xl mx-auto px-6 py-12">
+                <button onclick="navigateTo('home')" class="group flex items-center font-bold text-xs mb-12 press-effect hover:text-accent transition-04">
+                    <span class="mr-4 transform group-hover:-translate-x-2 transition-04 text-lg">←</span> 返回首页
+                </button>
+                
+                <div class="mb-16 reveal">
+                    <h1 id="cat-title-zh" class="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-tight mb-4 text-accent">分类名称</h1>
+                    <p id="cat-title-en" class="text-xl md:text-2xl font-light text-gray-500 uppercase tracking-widest">CATEGORY</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="category-grid">
+                    <!-- 分类下的作品卡片由 JS 生成 -->
+                </div>
+            </div>
+            
+            <div class="mt-20 pt-12 premium-border-t flex flex-col items-center pb-20">
+                <button onclick="navigateTo('home')" class="px-10 py-4 premium-border font-black text-xs uppercase tracking-widest hover:bg-accent hover:text-black transition-04">Back to home</button>
+            </div>
         </main>
 
         <!-- ================= 简历视图 ================= -->
@@ -253,12 +275,20 @@
     </div>
 
     <script>
-        // 【关键！数据修改指南】
-        // 1. image: 填写你的封面图在 images 文件夹的路径。例: 'images/rog-cover.jpg'
-        // 2. bvid: 只填 B 站视频的 BV 号（那一串字符）。例: 'BV1YzNuzLeaw'
+        // 定义三大核心分类
+        const categories = [
+            { id: 'motion', titleZh: '动态设计', titleEn: 'MOTION DESIGN' },
+            { id: 'simulation', titleZh: '动力学模拟', titleEn: 'DYNAMICS SIMULATION' },
+            { id: 'render', titleZh: '单帧渲染', titleEn: 'STILL RENDER' }
+        ];
+
+        // 数据库
+        // 注意：每个作品多了一个 mainCategory 属性，用来控制它显示在哪个分类里。
         const projects = [
+            // ================= 动态设计 =================
             {
                 id: 'p1',
+                mainCategory: 'motion',
                 titleZh: 'ROG 笔记本“刃”系列',
                 titleEn: 'ROG BLADE TVC',
                 category: '商业产品 TVC',
@@ -269,6 +299,7 @@
             },
             {
                 id: 'p2',
+                mainCategory: 'motion',
                 titleZh: '越王勾践剑工艺复原',
                 titleEn: 'SWORD OF GOUJIAN',
                 category: '文博三维动画',
@@ -279,6 +310,7 @@
             },
             {
                 id: 'p3',
+                mainCategory: 'motion',
                 titleZh: 'Cisco 音响产品动画',
                 titleEn: 'CISCO AUDIO',
                 category: '高精度渲染 / 动画',
@@ -289,6 +321,7 @@
             },
             {
                 id: 'p4',
+                mainCategory: 'motion',
                 titleZh: 'PUBG 角色皮肤宣发',
                 titleEn: 'PUBG SKIN PROMO',
                 category: '游戏 CG 渲染',
@@ -299,6 +332,7 @@
             },
             {
                 id: 'p5',
+                mainCategory: 'motion',
                 titleZh: '菊乐牛奶裸眼 3D',
                 titleEn: 'NAKED-EYE 3D',
                 category: '裸眼 3D 大屏',
@@ -309,6 +343,7 @@
             },
             {
                 id: 'p6',
+                mainCategory: 'motion',
                 titleZh: '招行双子塔 IP 动画',
                 titleEn: 'CMB IP ANIMATION',
                 category: '角色绑定与 MG',
@@ -319,6 +354,7 @@
             },
             {
                 id: 'p7',
+                mainCategory: 'motion',
                 titleZh: '网易蛋仔派对宣发',
                 titleEn: 'EGGY PARTY PROMO',
                 category: '游戏视觉渲染',
@@ -326,12 +362,60 @@
                 image: 'https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=1200',
                 bvid: '',
                 desc: '参与热门游戏宣发视频的三维视觉制作。深入理解项目的美术规范，主攻三维场景的氛围打光与材质细节刻画，并协助优化关键帧动画的流畅度。通过高效的渲染管线管理与后期调色处理，有力支撑了高标准游戏物料的按期交付。'
+            },
+
+            // ================= 动力学模拟 (预留上传位) =================
+            {
+                id: 'p8',
+                mainCategory: 'simulation',
+                titleZh: '流体与刚体碰撞测试',
+                titleEn: 'FLUID & RIGID BODY',
+                category: 'X-Particles 模拟',
+                date: '2025.01',
+                image: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=1200',
+                bvid: '', 
+                desc: '运用高级动力学节点解算流体冲击与刚体破碎的瞬间交互效果。重点调试粘度、表面张力等物理参数，在光影渲染中完美还原极具张力的物理真实感。'
+            },
+            {
+                id: 'p9',
+                mainCategory: 'simulation',
+                titleZh: '高精度烟雾特效',
+                titleEn: 'SMOKE EFFECTS',
+                category: '体积云模拟',
+                date: '2024.10',
+                image: 'https://images.unsplash.com/photo-1543857778-c4a1a3e0b2eb?q=80&w=1200',
+                bvid: '', 
+                desc: '通过体积构建与体素解算，完成高度真实的烟雾扩散表现。深入研究光在不同介质中的折射衰减，后期经过 AE 多通道叠加，增强了画面的空间纵深与神秘感。'
+            },
+
+            // ================= 单帧渲染 (预留上传位) =================
+            {
+                id: 'p10',
+                mainCategory: 'render',
+                titleZh: '赛博都市概念设计',
+                titleEn: 'CYBER CITY CONCEPT',
+                category: '场景搭建与打光',
+                date: '2024.08',
+                image: 'https://images.unsplash.com/photo-1515630278258-407f66498911?q=80&w=1200',
+                bvid: '', 
+                desc: '超大型城市模型的拼接与资产管理。通过构建复杂的冷暖霓虹灯光阵列，测试了渲染引擎在高面数、强反射场景下的极限表现力。单帧电影级调色产出。'
+            },
+            {
+                id: 'p11',
+                mainCategory: 'render',
+                titleZh: '机械核心硬表面特写',
+                titleEn: 'MECHA CORE CLOSE-UP',
+                category: '材质与节点研究',
+                date: '2024.03',
+                image: 'https://images.unsplash.com/photo-1610491462702-42e6ecd4f2dd?q=80&w=1200',
+                bvid: '', 
+                desc: '聚焦工业机械细节的极致还原。运用复杂的节点网络混合锈迹、油污与金属拉丝纹理。灯光方面使用极其克制的轮廓光勾勒硬表面倒角，展现结构的力量感。'
             }
         ];
 
-        function renderWorksGrid() {
-            const grid = document.getElementById('works-grid');
-            grid.innerHTML = projects.map(p => `
+        // 通用的卡片生成 HTML 函数
+        function generateCardHTML(p) {
+            return `
                 <div class="premium-border bg-[#0a0a0a] hover-card cursor-pointer flex flex-col group overflow-hidden" onclick="openDetail('${p.id}')">
                     <div class="aspect-[16/10] overflow-hidden border-b border-white/10 relative">
                         <img src="${p.image}" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition duration-1000">
@@ -346,24 +430,84 @@
                         <h3 class="text-lg font-black uppercase leading-tight">${p.titleZh}</h3>
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+
+        // 首页：渲染三大分类栏目
+        function renderHomeCategories() {
+            const container = document.getElementById('home-categories-container');
+            let html = '';
+
+            categories.forEach(cat => {
+                // 筛选出属于这个分类的所有作品
+                const catProjects = projects.filter(p => p.mainCategory === cat.id);
+                if (catProjects.length === 0) return;
+
+                // 首页每个分类最多只展示 3 个预览
+                const displayProjects = catProjects.slice(0, 3);
+                const cardsHtml = displayProjects.map(p => generateCardHTML(p)).join('');
+
+                html += `
+                    <div class="mb-24 reveal">
+                        <div class="flex justify-between items-end mb-8 border-b border-white/10 pb-4">
+                            <div>
+                                <h3 class="text-3xl font-black uppercase tracking-tighter text-accent">${cat.titleZh}</h3>
+                                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">${cat.titleEn}</p>
+                            </div>
+                            <!-- 查看全部按钮 -->
+                            <button onclick="openCategory('${cat.id}')" class="text-xs font-bold uppercase tracking-widest hover:text-accent transition-04 flex items-center group mb-2">
+                                查看全部 <span class="ml-2 group-hover:translate-x-1 transition-04 text-lg leading-none">→</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            ${cardsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // 打开指定的分类列表页
+        function openCategory(catId) {
+            const cat = categories.find(c => c.id === catId);
+            const catProjects = projects.filter(p => p.mainCategory === catId);
+
+            // 修改分类页的标题
+            document.getElementById('cat-title-zh').innerText = cat.titleZh;
+            document.getElementById('cat-title-en').innerText = cat.titleEn;
+
+            // 渲染该分类下的所有作品（不限数量）
+            const grid = document.getElementById('category-grid');
+            grid.innerHTML = catProjects.map(p => generateCardHTML(p)).join('');
+
+            navigateTo('category');
         }
 
         function openMobileMenu() { document.getElementById('mobile-menu').classList.remove('translate-x-full'); }
         function closeMobileMenu() { document.getElementById('mobile-menu').classList.add('translate-x-full'); }
 
+        // 页面跳转路由
         function navigateTo(viewId) {
             closeMobileMenu();
             const container = document.getElementById('app-container');
             container.style.opacity = '0';
+            
             setTimeout(() => {
                 window.scrollTo(0, 0);
+                
+                // 隐藏所有视图
                 document.getElementById('view-home').classList.add('view-hidden');
                 document.getElementById('view-resume').classList.add('view-hidden');
                 document.getElementById('view-detail').classList.add('view-hidden');
+                document.getElementById('view-category').classList.add('view-hidden');
+                
+                // 显示目标视图
                 if (viewId === 'home') document.getElementById('view-home').classList.remove('view-hidden');
                 if (viewId === 'resume') document.getElementById('view-resume').classList.remove('view-hidden');
                 if (viewId === 'detail') document.getElementById('view-detail').classList.remove('view-hidden');
+                if (viewId === 'category') document.getElementById('view-category').classList.remove('view-hidden');
+                
                 container.style.opacity = '1';
                 initScrollReveal();
             }, 300);
@@ -373,7 +517,6 @@
             const p = projects.find(x => x.id === id);
             const content = document.getElementById('detail-content');
             
-            // 【重构核心】：强制使用 https:// 绝对路径，完美解决本地双击和网页端的播放问题
             let mediaSection = p.bvid ? `
                 <div class="mb-20 premium-border bg-[#050505] overflow-hidden">
                     <div class="bili-container">
@@ -406,7 +549,10 @@
             document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
         }
 
-        window.onload = () => { renderWorksGrid(); initScrollReveal(); };
+        window.onload = () => { 
+            renderHomeCategories(); // 启动时渲染首页的三大分类板块
+            initScrollReveal(); 
+        };
     </script>
 </body>
 </html>
