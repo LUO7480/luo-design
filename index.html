@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>罗霖鸿 | 资深三维动态视觉设计师</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+
+        :root {
+            --c-bg: #000000;
+            --c-text: #ffffff;
+            --c-accent: #E5FF00; /* 高级荧光黄 */
+            --c-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--c-bg);
+            color: var(--c-text);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .premium-border { border: 1px solid var(--c-border); }
+        .premium-border-b { border-bottom: 1px solid var(--c-border); }
+        .premium-border-t { border-top: 1px solid var(--c-border); }
+
+        .transition-04 { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        .hover-card {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @media (hover: hover) {
+            .hover-card:hover {
+                transform: translateY(-4px);
+                border-color: var(--c-accent);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+            }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+
+        .view-hidden { display: none !important; }
+        .press-effect:active { transform: scale(0.98); }
+
+        .text-accent { color: var(--c-accent); }
+        
+        .timeline-dot::before {
+            content: '';
+            position: absolute;
+            left: -29px;
+            top: 6px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--c-accent);
+            border-radius: 50%;
+        }
+
+        /* B站嵌入容器 - 16:9 比例适配 */
+        .bili-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        .bili-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+    </style>
+</head>
+<body class="selection:bg-[#E5FF00] selection:text-black">
+
+    <!-- 导航栏 -->
+    <nav class="fixed top-0 w-full bg-black/80 backdrop-blur-xl z-50 premium-border-b transition-04">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+            <div class="text-xl font-black tracking-[0.2em] cursor-pointer press-effect hover:text-[var(--c-accent)] transition-04" onclick="navigateTo('home')">
+                LUO.DESIGN
+            </div>
+            
+            <div class="space-x-12 font-bold text-xs tracking-widest hidden md:flex">
+                <a href="#" onclick="navigateTo('home')" class="hover:text-[var(--c-accent)] flex flex-col items-center group">
+                    <span>首页</span><span class="opacity-30 uppercase text-[8px] mt-1 group-hover:opacity-100">Home</span>
+                </a>
+                <a href="#" onclick="navigateTo('home')" class="hover:text-[var(--c-accent)] flex flex-col items-center group">
+                    <span>作品</span><span class="opacity-30 uppercase text-[8px] mt-1 group-hover:opacity-100">Works</span>
+                </a>
+                <a href="#" onclick="navigateTo('resume')" class="hover:text-[var(--c-accent)] flex flex-col items-center group">
+                    <span>简历</span><span class="opacity-30 uppercase text-[8px] mt-1 group-hover:opacity-100">Resume</span>
+                </a>
+            </div>
+
+            <button onclick="openMobileMenu()" class="md:hidden text-white press-effect">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 8h16M4 16h16"></path>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 移动端菜单 -->
+    <div id="mobile-menu" class="fixed inset-0 bg-black z-[60] transform translate-x-full transition-transform duration-500 md:hidden flex flex-col items-center justify-center space-y-12">
+        <button onclick="closeMobileMenu()" class="absolute top-6 right-6 text-accent">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <a href="#" onclick="navigateTo('home')" class="text-3xl font-black uppercase tracking-widest">Home</a>
+        <a href="#" onclick="navigateTo('resume')" class="text-3xl font-black uppercase tracking-widest text-accent">Resume</a>
+    </div>
+
+    <div id="app-container" class="transition-opacity duration-500 pt-20">
+        
+        <!-- ================= 首页视图 ================= -->
+        <main id="view-home">
+            <!-- Hero -->
+            <section class="max-w-7xl mx-auto px-6 pt-20 md:pt-40 pb-20 reveal">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end">
+                    <div class="flex-grow">
+                        <!-- 已根据反馈去掉句点 -->
+                        <h1 class="text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tighter leading-[0.85] mb-8">
+                            罗霖鸿<br>
+                            <span class="text-accent text-5xl md:text-7xl lg:text-8xl mt-4 block">视觉专家</span>
+                        </h1>
+                        <p class="text-base md:text-xl font-light text-gray-400 max-w-2xl leading-relaxed">
+                            12年资深三维动态视觉设计师 / 专注于 C4D 全流程设计、产品动效演示与电影级视觉包装。
+                        </p>
+                    </div>
+                    <div class="mt-12 lg:mt-0 flex flex-col items-start lg:items-end">
+                        <div class="premium-border p-6 bg-[#050505] text-xs font-bold tracking-widest uppercase space-y-2">
+                            <div class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-accent mr-2 animate-pulse"></span> Available for Hire</div>
+                            <div class="opacity-40">宁波 / NINGBO</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 核心能力 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-32">
+                    <div class="premium-border p-8 bg-[#0a0a0a] group hover:bg-white hover:text-black transition-04">
+                        <div class="text-[10px] font-bold opacity-30 mb-8 group-hover:text-gray-400">01 / WORKFLOW</div>
+                        <h3 class="text-xl font-black uppercase mb-4 tracking-tighter">C4D 全流程系统</h3>
+                        <p class="text-sm font-light leading-relaxed opacity-60">精通建模、灯光渲染及角色骨骼绑定。擅长构建具有物理真实感的数字场景与机械动态。</p>
+                    </div>
+                    <div class="premium-border p-8 bg-[#0a0a0a] group hover:bg-white hover:text-black transition-04">
+                        <div class="text-[10px] font-bold opacity-30 mb-8 group-hover:text-gray-400">02 / SIMULATION</div>
+                        <h3 class="text-xl font-black uppercase mb-4 tracking-tighter">物理动力学模拟</h3>
+                        <p class="text-sm font-light leading-relaxed opacity-60">专注于 X-Particles 流体、粒子特效。能通过动力学模拟解决烟雾、火焰及柔体碰撞等高阶视觉需求。</p>
+                    </div>
+                    <div class="premium-border p-8 bg-[#0a0a0a] group hover:bg-white hover:text-black transition-04">
+                        <div class="text-[10px] font-bold opacity-30 mb-8 group-hover:text-gray-400">03 / POST-PROD</div>
+                        <h3 class="text-xl font-black uppercase mb-4 tracking-tighter">电影级后期合成</h3>
+                        <p class="text-sm font-light leading-relaxed opacity-60">熟练运用 AE/PS 进行三维素材的后期校色与特效合成。掌握 AI 生图技术，有效提升前期方案产出效率。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 作品选集 -->
+            <section class="max-w-7xl mx-auto px-6 py-24 premium-border-t">
+                <div class="flex flex-col md:flex-row justify-between items-baseline mb-16 reveal">
+                    <h2 class="text-4xl md:text-5xl font-black uppercase tracking-tighter">作品选集 <span class="text-sm font-bold text-gray-700 ml-4 tracking-widest">SELECTED WORKS</span></h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="works-grid">
+                    <!-- 作品由脚本生成 -->
+                </div>
+            </section>
+
+            <!-- 底部 -->
+            <footer id="about-section" class="premium-border-t">
+                <div class="max-w-7xl mx-auto px-6 py-24 flex flex-col md:flex-row justify-between items-center reveal">
+                    <div class="text-center md:text-left mb-12 md:mb-0">
+                        <h2 class="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4">联系我</h2>
+                        <p class="text-xl font-light text-gray-500 tracking-widest">173-6551-6595 / 宁波</p>
+                    </div>
+                    <div class="flex space-x-8 font-black text-xs tracking-widest uppercase">
+                        <a href="#" class="hover:text-accent transition-04">Behance</a>
+                        <a href="#" class="hover:text-accent transition-04">Zcool</a>
+                    </div>
+                </div>
+            </footer>
+        </main>
+
+        <!-- ================= 简历视图 ================= -->
+        <main id="view-resume" class="view-hidden">
+            <div class="max-w-7xl mx-auto px-6 py-20 reveal">
+                <div class="flex flex-col lg:flex-row gap-16">
+                    <div class="lg:col-span-4 lg:w-1/3 space-y-12">
+                        <div class="premium-border p-10 bg-[#0a0a0a]">
+                            <h1 class="text-5xl font-black uppercase mb-2">罗霖鸿</h1>
+                            <p class="text-accent font-bold tracking-widest uppercase text-xs mb-8">资深三维动态设计师</p>
+                            <div class="space-y-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                <p>坐标 / 宁波 Ningbo</p>
+                                <p>资历 / 12年工作经验</p>
+                                <p>电话 / 173-6551-6595</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lg:w-2/3 space-y-20">
+                        <section>
+                            <h2 class="text-3xl font-black uppercase mb-12 pb-4 premium-border-b">职业经历</h2>
+                            <div class="space-y-16 pl-6 border-l border-white/5">
+                                <div class="relative timeline-dot">
+                                    <div class="flex justify-between items-baseline mb-4">
+                                        <h4 class="text-xl font-black">成都妖妖影视科技有限公司</h4>
+                                        <span class="text-[10px] font-bold text-accent px-3 py-1 bg-accent/5">2024.03 - 2025.07</span>
+                                    </div>
+                                    <p class="text-sm font-light text-gray-300">主导广告项目全流程制作，负责高精度建模、灯光渲染到后期合成。独立复原湖北省博物馆“越王勾践剑”视觉动画。</p>
+                                </div>
+                                <div class="relative timeline-dot">
+                                    <div class="flex justify-between items-baseline mb-4">
+                                        <h4 class="text-xl font-black">成都象素工场文化传播有限公司</h4>
+                                        <span class="text-[10px] font-bold text-accent px-3 py-1 bg-accent/5">2022.09 - 2024.12</span>
+                                    </div>
+                                    <p class="text-sm font-light text-gray-300">负责产品动画渲染，参与《网易蛋仔派对》、ROG 笔记本等全流程视频制作。</p>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+                <div class="mt-32 pt-12 premium-border-t flex flex-col items-center">
+                    <button onclick="navigateTo('home')" class="px-10 py-4 premium-border font-black text-xs uppercase tracking-widest hover:bg-accent hover:text-black transition-04">Back to home</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= 详情页 ================= -->
+        <main id="view-detail" class="view-hidden">
+            <div class="max-w-7xl mx-auto px-6 py-12">
+                <button onclick="navigateTo('home')" class="group flex items-center font-bold text-xs mb-12 press-effect hover:text-accent transition-04">
+                    <span class="mr-4 transform group-hover:-translate-x-2 transition-04 text-lg">←</span> RETURN
+                </button>
+                <div id="detail-content" class="reveal"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 【关键！数据修改指南】
+        // 1. image: 填写你的封面图在 images 文件夹的路径。例: 'images/rog-cover.jpg'
+        // 2. bvid: 只填 B 站视频的 BV 号（那一串字符）。例: 'BV1YzNuzLeaw'
+        const projects = [
+            {
+                id: 'p1',
+                titleZh: 'ROG 笔记本“刃”系列',
+                titleEn: 'ROG BLADE TVC',
+                category: '商业产品 TVC',
+                date: '2023.12',
+                image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1200', // 这里记得改成 images/你的封面图.jpg
+                bvid: 'BV1YzNuzLeaw', // 已经为你示例填好了
+                desc: '负责核心性能动效演示，通过 MoGraph 矩阵动画展示散热结构。'
+            },
+            {
+                id: 'p2',
+                titleZh: '越王勾践剑工艺复原',
+                titleEn: 'SWORD OF GOUJIAN',
+                category: '文博三维动画',
+                date: '2025.03',
+                image: 'https://images.unsplash.com/photo-1599707334391-7d22f742c278?q=80&w=1200', 
+                bvid: '', 
+                desc: '动态还原国宝锻造、打磨、饰纹等关键工艺，C4D 物理光影真实还原。'
+            },
+            {
+                id: 'p3',
+                titleZh: 'Cisco 音响产品渲染',
+                titleEn: 'CISCO AUDIO',
+                category: '高精度渲染 / 动画',
+                date: '2024.09',
+                image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=1200',
+                bvid: '',
+                desc: '全面把控材质物理反馈与真实布光，为全球宣传提供视觉支撑。'
+            }
+        ];
+
+        function renderWorksGrid() {
+            const grid = document.getElementById('works-grid');
+            grid.innerHTML = projects.map(p => `
+                <div class="premium-border bg-[#0a0a0a] hover-card cursor-pointer flex flex-col group overflow-hidden" onclick="openDetail('${p.id}')">
+                    <div class="aspect-[16/10] overflow-hidden border-b border-white/10 relative">
+                        <img src="${p.image}" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition duration-1000">
+                        <div class="absolute inset-0 bg-accent/10 opacity-0 group-hover:opacity-100 transition-04 flex items-center justify-center backdrop-blur-[2px]">
+                            <div class="w-10 h-10 rounded-full border border-accent text-accent flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-04">
+                                <span class="font-bold text-sm">↗</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-accent font-bold text-[9px] uppercase mb-2 tracking-widest">${p.category}</p>
+                        <h3 class="text-lg font-black uppercase leading-tight">${p.titleZh}</h3>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openMobileMenu() { document.getElementById('mobile-menu').classList.remove('translate-x-full'); }
+        function closeMobileMenu() { document.getElementById('mobile-menu').classList.add('translate-x-full'); }
+
+        function navigateTo(viewId) {
+            closeMobileMenu();
+            const container = document.getElementById('app-container');
+            container.style.opacity = '0';
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.getElementById('view-home').classList.add('view-hidden');
+                document.getElementById('view-resume').classList.add('view-hidden');
+                document.getElementById('view-detail').classList.add('view-hidden');
+                if (viewId === 'home') document.getElementById('view-home').classList.remove('view-hidden');
+                if (viewId === 'resume') document.getElementById('view-resume').classList.remove('view-hidden');
+                if (viewId === 'detail') document.getElementById('view-detail').classList.remove('view-hidden');
+                container.style.opacity = '1';
+                initScrollReveal();
+            }, 300);
+        }
+
+        function openDetail(id) {
+            const p = projects.find(x => x.id === id);
+            const content = document.getElementById('detail-content');
+            
+            // 只要填了 bvid，就显示 B 站视频；没填就显示封面大图。
+            let mediaSection = p.bvid ? `
+                <div class="mb-20 premium-border bg-[#050505] overflow-hidden">
+                    <div class="bili-container">
+                        <iframe src="//player.bilibili.com/player.html?bvid=${p.bvid}&danmaku=0&high_quality=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>
+                    </div>
+                </div>` : `
+                <div class="mb-20 premium-border bg-[#050505] overflow-hidden">
+                    <img src="${p.image}" class="w-full h-auto">
+                </div>`;
+
+            content.innerHTML = `
+                <div class="mb-16">
+                    <div class="inline-block px-3 py-1 premium-border text-accent font-bold text-[10px] tracking-widest uppercase mb-8">${p.category}</div>
+                    <h1 class="text-4xl md:text-7xl font-black uppercase tracking-tighter leading-tight mb-4">${p.titleZh}</h1>
+                    <p class="text-xl md:text-2xl font-light text-gray-500 uppercase tracking-widest mb-16">${p.titleEn}</p>
+                </div>
+                ${mediaSection}
+                <div class="max-w-4xl mx-auto border-l border-white/10 pl-10">
+                    <h3 class="text-xl font-black uppercase mb-6 flex items-center"><span class="w-2 h-2 bg-accent mr-3"></span> 项目解析 OVERVIEW</h3>
+                    <p class="text-lg leading-relaxed font-light text-gray-400">${p.desc}</p>
+                </div>
+            `;
+            navigateTo('detail');
+        }
+
+        function initScrollReveal() {
+            const obs = new IntersectionObserver(entries => {
+                entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('active'); });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+        }
+
+        window.onload = () => { renderWorksGrid(); initScrollReveal(); };
+    </script>
+</body>
+</html>
