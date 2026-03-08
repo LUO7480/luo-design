@@ -2,6 +2,8 @@
 <html lang="zh-CN" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 核心：解除 B 站防盗链限制的“隐身衣” -->
     <meta name="referrer" content="no-referrer">
     <title>罗霖鸿 | 资深三维动态视觉设计师</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -135,7 +137,6 @@
             <section class="max-w-7xl mx-auto px-6 pt-20 md:pt-40 pb-20 reveal">
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end">
                     <div class="flex-grow">
-                        <!-- 已根据反馈去掉句点 -->
                         <h1 class="text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tighter leading-[0.85] mb-8">
                             罗霖鸿<br>
                             <span class="text-accent text-5xl md:text-7xl lg:text-8xl mt-4 block">视觉专家</span>
@@ -262,8 +263,8 @@
                 titleEn: 'ROG BLADE TVC',
                 category: '商业产品 TVC',
                 date: '2023.12',
-                image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1200', // 这里记得改成 images/你的封面图.jpg
-                bvid: 'BV1YzNuzLeaw', // 已经为你示例填好了
+                image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=1200',
+                bvid: 'BV1YzNuzLeaw', // 已经为你示例填好了一个 BV 号，你可以替换成自己的
                 desc: '负责核心性能动效演示，通过 MoGraph 矩阵动画展示散热结构。'
             },
             {
@@ -273,7 +274,7 @@
                 category: '文博三维动画',
                 date: '2025.03',
                 image: 'https://images.unsplash.com/photo-1599707334391-7d22f742c278?q=80&w=1200', 
-                bvid: '', 
+                bvid: '', // 如果有B站视频，填入BV号；如果没有，保持为空即可显示图片
                 desc: '动态还原国宝锻造、打磨、饰纹等关键工艺，C4D 物理光影真实还原。'
             },
             {
@@ -332,11 +333,11 @@
             const p = projects.find(x => x.id === id);
             const content = document.getElementById('detail-content');
             
-            // 只要填了 bvid，就显示 B 站视频；没填就显示封面大图。
+            // 【重构核心】：强制使用 https:// 绝对路径，完美解决本地双击和网页端的播放问题
             let mediaSection = p.bvid ? `
                 <div class="mb-20 premium-border bg-[#050505] overflow-hidden">
                     <div class="bili-container">
-                        <iframe src="//player.bilibili.com/player.html?bvid=${p.bvid}&danmaku=0&high_quality=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>
+                        <iframe src="https://player.bilibili.com/player.html?bvid=${p.bvid}&danmaku=0&high_quality=1&as_wide=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>
                     </div>
                 </div>` : `
                 <div class="mb-20 premium-border bg-[#050505] overflow-hidden">
