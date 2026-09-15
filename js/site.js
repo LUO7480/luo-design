@@ -54,23 +54,41 @@ function initFeaturedShowcase() {
   const featuredProducts = products.filter((product) => product.featured).slice(0, 3);
   let activeIndex = 0;
   let rotation = 0;
+  let tilt = 0;
   let dragStart = null;
+  let dragStartY = null;
+  let dragDistance = 0;
 
   const draw = () => {
     const product = featuredProducts[activeIndex];
-    viewer.innerHTML = `<div class="featured-product-copy"><span>${escapeHtml(product.category)} / FEATURED</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description)}</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join('')}</ul><div class="hero-actions"><a class="btn btn-primary" href="product.html?id=${encodeURIComponent(product.id)}">查看产品 ↗</a><a class="btn btn-ghost" href="products.html">全部产品</a></div></div><div class="featured-model" data-model-slot="${escapeHtml(product.id)}"><div class="model-orbit"></div><img src="${product.image}" alt="${escapeHtml(product.name)} 360度展示" draggable="false"><span class="model-hint">↔ 拖动旋转 · 3D 模型插槽已预留</span></div>`;
+    viewer.classList.remove('is-immersive');
+    viewer.innerHTML = `<div class="featured-product-copy"><span>${escapeHtml(product.category)} / FEATURED</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.description)}</p><ul>${product.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join('')}</ul><div class="hero-actions"><a class="btn btn-primary" href="product.html?id=${encodeURIComponent(product.id)}">查看产品 ↗</a><a class="btn btn-ghost" href="products.html">全部产品</a></div></div><div class="featured-model" data-model-slot="${escapeHtml(product.id)}" role="button" tabindex="0" aria-label="放大并旋转查看 ${escapeHtml(product.name)}" aria-expanded="false"><div class="model-orbit"></div><img src="${product.image}" alt="${escapeHtml(product.name)} 360度展示" draggable="false"><span class="model-expand-label">点击沉浸查看 ＋</span><span class="model-hint">点击放大 · 拖动模拟 360° 旋转</span></div>`;
     thumbs.innerHTML = featuredProducts.map((item, index) => `<button type="button" class="featured-thumb ${index === activeIndex ? 'is-active' : ''}" data-featured-index="${index}" aria-label="查看 ${escapeHtml(item.name)}" aria-pressed="${index === activeIndex}"><img src="${item.image}" alt=""><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.tagline)}</small></span></button>`).join('');
     rotation = 0;
+    tilt = 0;
+  };
+  const toggleImmersive = (force) => {
+    const model = $('.featured-model', viewer);
+    const nextState = typeof force === 'boolean' ? force : !viewer.classList.contains('is-immersive');
+    viewer.classList.toggle('is-immersive', nextState);
+    model?.setAttribute('aria-expanded', String(nextState));
+    const label = $('.model-expand-label', viewer);
+    const hint = $('.model-hint', viewer);
+    if (label) label.textContent = nextState ? '退出沉浸查看 ×' : '点击沉浸查看 ＋';
+    if (hint) hint.textContent = nextState ? '↔ 拖动旋转 · 按 ESC 退出' : '点击放大 · 拖动模拟 360° 旋转';
   };
   const move = (direction) => { activeIndex = wrapIndex(activeIndex + direction, featuredProducts.length); draw(); };
   $('[data-featured-prev]')?.addEventListener('click', () => move(-1));
   $('[data-featured-next]')?.addEventListener('click', () => move(1));
   thumbs.addEventListener('click', (event) => { const button = event.target.closest('[data-featured-index]'); if (!button) return; activeIndex = Number(button.dataset.featuredIndex); draw(); });
-  viewer.addEventListener('pointerdown', (event) => { if (!event.target.closest('.featured-model')) return; dragStart = event.clientX; viewer.setPointerCapture(event.pointerId); });
-  viewer.addEventListener('pointermove', (event) => { if (dragStart === null) return; rotation += (event.clientX - dragStart) * .55; dragStart = event.clientX; const image = $('.featured-model img', viewer); if (image) image.style.transform = `perspective(900px) rotateY(${rotation}deg)`; });
-  const endDrag = () => { dragStart = null; };
+  viewer.addEventListener('click', (event) => { if (!event.target.closest('.featured-model') || dragDistance > 6) return; toggleImmersive(); });
+  viewer.addEventListener('keydown', (event) => { if (!event.target.closest('.featured-model')) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleImmersive(); } });
+  viewer.addEventListener('pointerdown', (event) => { if (!event.target.closest('.featured-model')) return; dragStart = event.clientX; dragStartY = event.clientY; dragDistance = 0; viewer.setPointerCapture(event.pointerId); });
+  viewer.addEventListener('pointermove', (event) => { if (dragStart === null) return; const deltaX = event.clientX - dragStart; const deltaY = event.clientY - dragStartY; rotation += deltaX * .55; tilt = Math.max(-12, Math.min(12, tilt - deltaY * .12)); dragDistance += Math.abs(deltaX) + Math.abs(deltaY); dragStart = event.clientX; dragStartY = event.clientY; const image = $('.featured-model img', viewer); if (image) image.style.transform = `perspective(1100px) rotateX(${tilt}deg) rotateY(${rotation}deg) scale(${viewer.classList.contains('is-immersive') ? 1.05 : 1})`; });
+  const endDrag = () => { dragStart = null; dragStartY = null; setTimeout(() => { dragDistance = 0; }, 0); };
   viewer.addEventListener('pointerup', endDrag);
   viewer.addEventListener('pointercancel', endDrag);
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && viewer.classList.contains('is-immersive')) toggleImmersive(false); });
   draw();
 }
 
