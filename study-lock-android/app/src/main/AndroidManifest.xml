@@ -4,9 +4,20 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <queries>
         <intent><action android:name="android.intent.action.DIAL" /><data android:scheme="tel" /></intent>
         <intent><action android:name="android.telecom.InCallService" /></intent>
+        <intent><action android:name="android.settings.SETTINGS" /></intent>
+        <intent><action android:name="android.settings.ACCESSIBILITY_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" /><data android:scheme="package" /></intent>
+        <intent><action android:name="android.settings.REQUEST_SCHEDULE_EXACT_ALARM" /><data android:scheme="package" /></intent>
+        <package android:name="com.android.settings" />
+        <package android:name="com.android.permissioncontroller" />
+        <package android:name="com.google.android.permissioncontroller" />
+        <package android:name="com.android.packageinstaller" />
+        <package android:name="com.google.android.packageinstaller" />
+        <package android:name="com.miui.packageinstaller" />
         <package android:name="com.android.phone" />
         <package android:name="com.android.incallui" />
         <package android:name="com.android.server.telecom" />
@@ -17,6 +28,12 @@
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <activity android:name=".FocusActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:enableOnBackInvokedCallback="true" />
+        <service android:name=".FocusAccessibilityService" android:label="学习锁屏 · 专注遮罩"
+            android:exported="true" android:directBootAware="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/focus_accessibility" />
+        </service>
         <receiver android:name=".AdminReceiver" android:permission="android.permission.BIND_DEVICE_ADMIN" android:exported="true">
             <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin" />
             <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>

@@ -13,12 +13,10 @@ public final class AlarmReceiver extends BroadcastReceiver {
         }
         if (!context.getSystemService(UserManager.class).isUserUnlocked()) {
             // Credential-protected phone services may be unavailable before first unlock.
-            // Still release expired policy; BOOT_COMPLETED enforces after credential unlock.
+            // Release legacy policy; consumer enforcement waits for credential unlock.
             try {
                 long end = Store.end(context);
-                if (end == 0) {
-                    if (Store.committed(context)) Policy.pause(context); else Policy.release(context);
-                }
+                Policy.release(context);
                 Scheduler.schedule(context, end);
             } catch (RuntimeException error) {
                 Store.fail(context, "重启后定时权限不可用，请解锁手机后检查。");
@@ -26,6 +24,6 @@ public final class AlarmReceiver extends BroadcastReceiver {
             }
             return;
         }
-        Controller.reconcile(context, true);
+        Controller.reconcile(context, false);
     }
 }

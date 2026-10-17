@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_description">学习时识别当前应用的包名并显示专注遮罩。仅在本机处理，不读取屏幕文字，不点击其他应用，不联网。通话期间暂停遮罩。可随时在系统设置关闭此服务或卸载应用。</string>
+</resources>

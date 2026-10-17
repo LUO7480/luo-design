@@ -50,9 +50,10 @@ jobs:
       - name: Verify schedule and automatic release rules
         run: |
           mkdir -p build/checks
-          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java app/src/main/java/cn/studylock/RecoveryCrypto.java app/src/main/java/cn/studylock/RecoveryRules.java tests/ScheduleTest.java tests/RecoveryTest.java
+          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java app/src/main/java/cn/studylock/RecoveryCrypto.java app/src/main/java/cn/studylock/RecoveryRules.java app/src/main/java/cn/studylock/BlockingRules.java tests/ScheduleTest.java tests/RecoveryTest.java tests/BlockingRulesTest.java
           java -cp build/checks ScheduleTest
           java -cp build/checks RecoveryTest
+          java -cp build/checks BlockingRulesTest
           node tests/recovery-helper.test.cjs
 
       - name: Build native APK
