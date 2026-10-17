@@ -8,6 +8,8 @@
 
 安卓工程位于仓库的 `study-lock-android/` 子目录，工作流位于仓库根目录的 `.github/workflows/build.yml`。源代码提交后自动运行，也可在仓库的 **Actions → Build Android APK → Run workflow** 手动启动。
 
+首轮云端构建已通过：[构建记录](https://github.com/LUO7480/luo-design/actions/runs/39023827595)。产物 `app-debug.apk` 实测 39,663 字节，下载后 SHA-256 和 APK 签名验证均通过。此结果证明构建与产物完整性，不代表已经通过小米手机实测。
+
 云端使用标准 Ubuntu 运行器、Java 17、Gradle 8.13 和 Android SDK 36。先验证日程及自动解除逻辑，再生成并验证 `app-debug.apk`。个人电脑无需安装 Android Studio、模拟器或开发工具。
 
 构建成功后，打开本次运行的 **Artifacts → StudyLock-Android16-APK**，下载 ZIP 并解压取得 `app-debug.apk`。私有仓库下载需要登录有权限的 GitHub 账号。产物保留 3 天；到期可手动重新运行工作流。
@@ -83,6 +85,6 @@
 .\build.ps1 -JdkPath 'C:\path\to\jdk-17' -SdkPath 'C:\path\to\Android\Sdk'
 ```
 
-SDK 需含 `platforms/android-36` 和 `build-tools/36.0.0`。另外提供标准 Gradle 项目配置，当前已验证的构建路径为上述 PowerShell 脚本。
+SDK 需含 `platforms/android-36` 和 `build-tools/36.0.0`。标准 Gradle 云端构建和备用 PowerShell 本地构建均已通过。
 
 系统能力依据：[Android 锁定任务模式](https://developer.android.com/work/dpc/dedicated-devices/lock-task-mode)、[设备配置要求](https://developer.android.com/work/dpc/dedicated-devices)、[精确定时](https://developer.android.com/develop/background-work/services/alarms)。
