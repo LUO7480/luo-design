@@ -1,0 +1,431 @@
+name: Build Xiaomi 14 Study Lock APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. 配置 Java 17 环境
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 2. 配置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 3. 自动生成全套 Android 原生工程源码
+        run: |
+          mkdir -p app/src/main/java/com/xm14/studylock
+
+          cat << 'EOF' > settings.gradle
+          rootProject.name = "StudyLock"
+          include ':app'
+          EOF
+
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          android {
+              namespace 'com.xm14.studylock'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.xm14.studylock"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 3
+                  versionName "3.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+              <uses-permission android:name="android.permission.VIBRATE"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <application
+                  android:label="深度学习锁"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <service android:name=".LockService" android:exported="false"/>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/xm14/studylock/MainActivity.java
+          package com.xm14.studylock;
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.view.Gravity;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setGravity(Gravity.CENTER);
+                  root.setBackgroundColor(Color.parseColor("#121212"));
+                  root.setPadding(60, 60, 60, 60);
+
+                  TextView title = new TextView(this);
+                  title.setText("📚 小米14 深度学习锁 v3.0");
+                  title.setTextColor(Color.WHITE);
+                  title.setTextSize(22);
+                  title.setGravity(Gravity.CENTER);
+                  root.addView(title);
+
+                  TextView desc = new TextView(this);
+                  desc.setText("\n⏰ 每晚 19:00 - 23:00 自动锁屏\n☕ 每学55分钟 → 闹钟响铃解锁休息5分钟\n🛡️ 内置：60位乱码急救 + 12位主密钥 + 电话 + 手电筒\n");
+                  desc.setTextColor(Color.parseColor("#4FC3F7"));
+                  desc.setTextSize(14);
+                  desc.setGravity(Gravity.CENTER);
+                  root.addView(desc);
+
+                  Button permBtn = new Button(this);
+                  permBtn.setText("① 第一步：点击开启【悬浮窗权限】");
+                  permBtn.setOnClickListener(v -> {
+                      Intent i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
+                      startActivity(i);
+                  });
+                  root.addView(permBtn);
+
+                  Button startBtn = new Button(this);
+                  startBtn.setText("② 第二步：启动后台锁机守护服务");
+                  startBtn.setOnClickListener(v -> {
+                      if (!Settings.canDrawOverlays(this)) {
+                          Toast.makeText(this, "请先点击第一个按钮开启悬浮窗权限！", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      startForegroundService(new Intent(this, LockService.class));
+                      Toast.makeText(this, "✅ 守护已启动！请在多任务栏下拉加锁本应用", Toast.LENGTH_LONG).show();
+                  });
+                  root.addView(startBtn);
+
+                  Button testBtn = new Button(this);
+                  testBtn.setText("🔒 立即测试锁屏效果（体验 90 秒）");
+                  testBtn.setOnClickListener(v -> {
+                      if (!Settings.canDrawOverlays(this)) {
+                          Toast.makeText(this, "请先开启悬浮窗权限！", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      Intent i = new Intent(this, LockService.class);
+                      i.putExtra("TEST_MODE", true);
+                      startForegroundService(i);
+                  });
+                  root.addView(testBtn);
+
+                  setContentView(root);
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/xm14/studylock/LockService.java
+          package com.xm14.studylock;
+          import android.app.*;
+          import android.content.*;
+          import android.graphics.Color;
+          import android.graphics.PixelFormat;
+          import android.hardware.camera2.CameraManager;
+          import android.media.Ringtone;
+          import android.media.RingtoneManager;
+          import android.net.Uri;
+          import android.os.*;
+          import android.view.*;
+          import android.widget.*;
+          import java.util.Calendar;
+          import java.util.Random;
+
+          public class LockService extends Service {
+              // 【在下方修改你的12位终极冰封主密钥】
+              private static final String MASTER_KEY = "XM14-9928-LLH6";
+
+              private WindowManager wm;
+              private View lockView;
+              private TextView clockTv;
+              private boolean isLocked = false;
+              private boolean isTorchOn = false;
+              private long testUntil = 0;
+              private long tempUnlockUntil = 0;
+              private int lastEmergencyDay = -1;
+              private String lastBellMinute = "";
+              private String currentTorture = "";
+              private Handler handler = new Handler(Looper.getMainLooper());
+
+              @Override
+              public void onCreate() {
+                  super.onCreate();
+                  wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                  startMyForeground();
+                  handler.post(checkRunnable);
+              }
+
+              @Override
+              public int onStartCommand(Intent intent, int flags, int startId) {
+                  if (intent != null && intent.getBooleanExtra("TEST_MODE", false)) {
+                      testUntil = System.currentTimeMillis() + 90 * 1000;
+                      tempUnlockUntil = 0;
+                      ringAndVibrate("🔒 已进入 90 秒测试锁定模式！");
+                  }
+                  return START_STICKY;
+              }
+
+              private void startMyForeground() {
+                  String cid = "study_lock_channel";
+                  NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                  nm.createNotificationChannel(new NotificationChannel(cid, "学习锁机守护", NotificationManager.IMPORTANCE_LOW));
+                  Notification n = new Notification.Builder(this, cid)
+                          .setContentTitle("📚 深度学习锁守护运行中")
+                          .setContentText("每晚 19:00-23:00 自动锁屏，每学55分钟休5分钟")
+                          .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+                          .build();
+                  startForeground(101, n);
+              }
+
+              private Runnable checkRunnable = new Runnable() {
+                  @Override
+                  public void run() {
+                      Calendar cal = Calendar.getInstance();
+                      int hour = cal.get(Calendar.HOUR_OF_DAY);
+                      int min = cal.get(Calendar.MINUTE);
+                      int sec = cal.get(Calendar.SECOND);
+                      long now = System.currentTimeMillis();
+
+                      boolean inSchedule = (hour >= 19 && hour < 23);
+                      boolean isBreak = inSchedule && (hour < 22) && (min >= 55);
+                      boolean inTest = (now < testUntil);
+                      boolean inTemp = (now < tempUnlockUntil);
+
+                      String minKey = hour + ":" + min;
+                      if (inSchedule && !minKey.equals(lastBellMinute)) {
+                          if (min == 55 && hour < 22) {
+                              lastBellMinute = minKey;
+                              ringAndVibrate("☕ 已专注55分钟！自动解锁休息 5 分钟！");
+                          } else if (min == 0 && hour >= 19 && hour <= 22) {
+                              lastBellMinute = minKey;
+                              ringAndVibrate("🔒 开始专注锁定！");
+                          }
+                      }
+                      if (isBreak && min == 59 && sec == 30) {
+                          Toast.makeText(LockService.this, "⚠️ 休息还剩最后 30 秒，准备收心！", Toast.LENGTH_LONG).show();
+                      }
+                      if (hour == 23 && min == 0 && !"23:0".equals(lastBellMinute)) {
+                          lastBellMinute = "23:0";
+                          ringAndVibrate("🎉 今晚学习圆满完成，手机已彻底解锁！");
+                      }
+
+                      if ((inSchedule && !isBreak && !inTemp) || (inTest && !inTemp)) {
+                          if (!isLocked) showOverlay();
+                          if (clockTv != null) {
+                              if (inTest) {
+                                  clockTv.setText("测试锁定剩余：" + ((testUntil - now) / 1000) + " 秒");
+                              } else if (hour < 22) {
+                                  clockTv.setText("⏱️ 距离本小时 5 分钟休息还有：" + (55 - min) + " 分钟");
+                              } else {
+                                  clockTv.setText("🔥 最后冲刺！距离 23:00 彻底解锁还有：" + (60 - min) + " 分钟");
+                              }
+                          }
+                      } else {
+                          if (isLocked) hideOverlay();
+                      }
+                      handler.postDelayed(this, 1000);
+                  }
+              };
+
+              private String genTorture(int len) {
+                  String chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+                  Random r = new Random();
+                  StringBuilder sb = new StringBuilder();
+                  for (int i = 0; i < len; i++) sb.append(chars.charAt(r.nextInt(chars.length())));
+                  return sb.toString();
+              }
+
+              private void showOverlay() {
+                  isLocked = true;
+                  currentTorture = genTorture(60);
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setBackgroundColor(Color.parseColor("#0D1117"));
+                  LinearLayout box = new LinearLayout(this);
+                  box.setOrientation(LinearLayout.VERTICAL);
+                  box.setGravity(Gravity.CENTER);
+                  box.setPadding(50, 90, 50, 90);
+
+                  TextView t1 = new TextView(this);
+                  t1.setText("🔒 深度学习专注中");
+                  t1.setTextColor(Color.parseColor("#FF5252"));
+                  t1.setTextSize(24);
+                  t1.setGravity(Gravity.CENTER);
+                  box.addView(t1);
+
+                  clockTv = new TextView(this);
+                  clockTv.setTextColor(Color.parseColor("#4FC3F7"));
+                  clockTv.setTextSize(15);
+                  clockTv.setGravity(Gravity.CENTER);
+                  clockTv.setPadding(0, 20, 0, 40);
+                  box.addView(clockTv);
+
+                  // 后手一：60位乱码急救
+                  TextView eTitle = new TextView(this);
+                  eTitle.setText("⚡ 后手一：紧急借用 5 分钟（每晚限1次，手动敲入下方60位字符）");
+                  eTitle.setTextColor(Color.parseColor("#FF9800"));
+                  eTitle.setTextSize(12);
+                  box.addView(eTitle);
+
+                  TextView codeTv = new TextView(this);
+                  codeTv.setText(currentTorture);
+                  codeTv.setTextColor(Color.parseColor("#FFD700"));
+                  codeTv.setBackgroundColor(Color.BLACK);
+                  codeTv.setPadding(24, 24, 24, 24);
+                  codeTv.setTextSize(13);
+                  box.addView(codeTv);
+
+                  EditText tortureInput = new EditText(this);
+                  tortureInput.setHint("在此手动输入上方60位字符");
+                  tortureInput.setTextColor(Color.WHITE);
+                  tortureInput.setHintTextColor(Color.GRAY);
+                  box.addView(tortureInput);
+
+                  Button tempBtn = new Button(this);
+                  tempBtn.setText("验证 60 位字符并临时解锁 5 分钟");
+                  tempBtn.setOnClickListener(v -> {
+                      int today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
+                      if (lastEmergencyDay == today) {
+                          Toast.makeText(this, "今晚的 5 分钟紧急额度已用完！请等整点前5分钟休息", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (currentTorture.equals(tortureInput.getText().toString().trim())) {
+                          lastEmergencyDay = today;
+                          tempUnlockUntil = System.currentTimeMillis() + 5 * 60 * 1000;
+                          Toast.makeText(this, "⚡ 紧急验证通过！临时解锁 5 分钟！", Toast.LENGTH_LONG).show();
+                          hideOverlay();
+                      } else {
+                          Toast.makeText(this, "字符不一致，请仔细核对大小写！", Toast.LENGTH_SHORT).show();
+                      }
+                  });
+                  box.addView(tempBtn);
+
+                  // 后手二：12位主密钥
+                  EditText masterInput = new EditText(this);
+                  masterInput.setHint("🧊 后手二：输入12位冰封主密钥彻底解锁");
+                  masterInput.setTextColor(Color.WHITE);
+                  masterInput.setHintTextColor(Color.GRAY);
+                  box.addView(masterInput);
+
+                  Button masterBtn = new Button(this);
+                  masterBtn.setText("验证主密钥并解除今晚锁定");
+                  masterBtn.setOnClickListener(v -> {
+                      if (MASTER_KEY.equals(masterInput.getText().toString().trim())) {
+                          testUntil = 0;
+                          tempUnlockUntil = System.currentTimeMillis() + 5 * 3600 * 1000;
+                          Toast.makeText(this, "🔓 主密钥通过，今晚锁定已解除！", Toast.LENGTH_LONG).show();
+                          hideOverlay();
+                      } else {
+                          Toast.makeText(this, "主密钥错误！", Toast.LENGTH_SHORT).show();
+                      }
+                  });
+                  box.addView(masterBtn);
+
+                  // 电话与手电筒
+                  Button callBtn = new Button(this);
+                  callBtn.setText("📞 打开电话拨号盘（临时放行90秒拨号）");
+                  callBtn.setOnClickListener(v -> {
+                      tempUnlockUntil = System.currentTimeMillis() + 90 * 1000;
+                      hideOverlay();
+                      Intent dial = new Intent(Intent.ACTION_DIAL);
+                      dial.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                      startActivity(dial);
+                  });
+                  box.addView(callBtn);
+
+                  Button torchBtn = new Button(this);
+                  torchBtn.setText("🔦 停电手电筒开关");
+                  torchBtn.setOnClickListener(v -> toggleTorch());
+                  box.addView(torchBtn);
+
+                  scroll.addView(box);
+                  lockView = scroll;
+
+                  WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                          WindowManager.LayoutParams.MATCH_PARENT,
+                          WindowManager.LayoutParams.MATCH_PARENT,
+                          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                          WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                          PixelFormat.OPAQUE);
+                  wm.addView(lockView, lp);
+              }
+
+              private void hideOverlay() {
+                  if (lockView != null) {
+                      try { wm.removeView(lockView); } catch (Exception e) {}
+                      lockView = null;
+                  }
+                  isLocked = false;
+              }
+
+              private void toggleTorch() {
+                  try {
+                      CameraManager cm = (CameraManager) getSystemService(CAMERA_SERVICE);
+                      isTorchOn = !isTorchOn;
+                      cm.setTorchMode(cm.getCameraIdList()[0], isTorchOn);
+                      Toast.makeText(this, isTorchOn ? "🔦 手电筒已开启" : "手电筒已关闭", Toast.LENGTH_SHORT).show();
+                  } catch (Exception e) {}
+              }
+
+              private void ringAndVibrate(String msg) {
+                  Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+                  try {
+                      Vibrator vib = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                      if (vib != null) vib.vibrate(VibrationEffect.createOneShot(1500, VibrationEffect.DEFAULT_AMPLITUDE));
+                      Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                      Ringtone rt = RingtoneManager.getRingtone(this, uri);
+                      rt.play();
+                      handler.postDelayed(rt::stop, 4000);
+                  } catch (Exception e) {}
+              }
+
+              @Override
+              public IBinder onBind(Intent intent) { return null; }
+          }
+          EOF
+
+      - name: 4. 云端编译生成 APK
+        run: |
+          gradle assembleDebug
+
+      - name: 5. 上传打包好的 APK 供下载
+        uses: actions/upload-artifact@v4
+        with:
+          name: 小米14-深度学习锁-APK安装包
+          path: app/build/outputs/apk/debug/app-debug.apk
