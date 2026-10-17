@@ -12,43 +12,36 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Toast;
 import android.widget.TextView;
+import android.widget.Toast;
+import java.util.ArrayList;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private TextView restStatus;
-    private boolean displayedCommitment;
-    private boolean displayedConnection;
+    private TextView status;
+    private String displayed = "";
+    private boolean resumed;
     private final Runnable tick = new Runnable() {
         @Override public void run() {
-            if (Store.end(MainActivity.this) > 0 && FocusAccessibilityService.connected()) {
+            if (Store.end(MainActivity.this) > 0) {
                 if (Controller.reconcile(MainActivity.this, true) > 0) return;
             }
-            if (displayedCommitment != Store.committed(MainActivity.this)
-                    || displayedConnection != FocusAccessibilityService.connected()) {
-                Controller.reconcile(MainActivity.this, false);
-                showHome();
-            }
-            if (restStatus != null && Store.committed(MainActivity.this)) {
-                if (!FocusAccessibilityService.connected()) restStatus.setText("无障碍服务未连接，当前不能限制其他应用");
-                else {
-                    long seconds = Math.max(0, (Store.nextBoundary(MainActivity.this) - System.currentTimeMillis() + 999) / 1000);
-                    restStatus.setText(String.format(Locale.ROOT, "休息中，%02d:%02d 后自动切换", seconds / 60, seconds % 60));
-                }
+            String current = signature();
+            if (!current.equals(displayed)) showHome();
+            if (status != null && Store.committed(MainActivity.this)) {
+                long seconds = Math.max(0, (Store.nextBoundary(MainActivity.this) - System.currentTimeMillis() + 999) / 1000);
+                status.setText(String.format(Locale.ROOT, "休息中，%02d:%02d 后继续学习", seconds / 60, seconds % 60));
             }
             handler.postDelayed(this, 1000);
         }
     };
 
-    @Override public void onCreate(Bundle state) { super.onCreate(state); }
-
     @Override public void onResume() {
         super.onResume();
+        resumed = true;
         FocusAccessibilityService.appVisible(true);
         if (Controller.reconcile(this, true) > 0) return;
         showHome();
@@ -57,6 +50,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onPause() {
+        resumed = false;
         handler.removeCallbacks(tick);
         FocusAccessibilityService.appVisible(false);
         super.onPause();
@@ -64,144 +58,137 @@ public final class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (Store.end(this) == 0) showHome();
+        if (resumed && Store.end(this) == 0) showHome();
     }
 
-    private void openSettings(Intent intent) {
+    private boolean permissionsReady() {
+        return FocusAccessibilityService.consented(this) && FocusAccessibilityService.connected()
+                && Policy.phonePermission(this) && Scheduler.exact(this)
+                && BreakReminder.allowed(this) && Policy.dialer(this) != null;
+    }
+
+    private String signature() {
+        return permissionsReady() + "|" + FocusAccessibilityService.connected() + "|"
+                + Store.prefs(this).getBoolean("enabled", false) + "|" + Store.committed(this)
+                + "|" + RecoveryVault.ready(this);
+    }
+
+    private void open(Intent intent) {
         try { startActivity(intent); }
-        catch (RuntimeException error) { Toast.makeText(this, "请从手机设置进入本应用的权限页面", Toast.LENGTH_LONG).show(); }
+        catch (RuntimeException error) { Toast.makeText(this, "请从手机设置进入学习锁屏的权限页面", Toast.LENGTH_LONG).show(); }
     }
 
-    private void appInfo() { openSettings(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); }
+    private void appInfo() { open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); }
 
-    private void accessibility() {
-        if (FocusAccessibilityService.consented(this)) {
-            openSettings(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            return;
-        }
-        new AlertDialog.Builder(this).setTitle("无障碍权限用途")
-                .setMessage("学习锁屏使用无障碍服务识别当前前台应用的包名，在学习时段显示可拦截触摸的遮罩。\n\n仅在本机处理包名，不读取屏幕文字、聊天内容或密码，不代你点击其他应用，不联网或上传数据。\n\n电话状态权限仅用于在来电和通话时暂时移除遮罩；此时可使用手机，挂断后恢复。系统设置与卸载入口保持可用。\n\n你可随时在系统设置关闭服务或卸载。系统手势、关闭权限、强行停止及后台清理可以绕过限制，不能保证完全锁死手机。")
-                .setNegativeButton("暂不使用", null)
-                .setPositiveButton("同意并打开设置", (dialog, which) -> {
-                    Store.prefs(this).edit().putBoolean("accessibility_consent_v3", true).commit();
-                    FocusAccessibilityService.refreshSoon();
-                    openSettings(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-                }).show();
+    private void grantNext() {
+        if (!FocusAccessibilityService.consented(this)) {
+            new AlertDialog.Builder(this).setTitle("无障碍服务用途")
+                    .setMessage("学习时，本应用识别前台应用包名和界面类名，显示遮罩；仅放行电话与已适配的微信通话页，不放行微信聊天和桌面。\n\n这些信息仅在本机即时处理，不读取屏幕文字、聊天内容或密码，不代点，不联网或上传。你可在系统设置关闭服务或卸载；系统权限被关闭时无法继续拦截其他应用。")
+                    .setNegativeButton("暂不开启", null)
+                    .setPositiveButton("同意并授权", (dialog, which) -> {
+                        Store.prefs(this).edit().putBoolean("accessibility_consent_v3", true).commit();
+                        open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    }).show();
+        } else if (!FocusAccessibilityService.connected()) {
+            open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } else if (!Policy.phonePermission(this)
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            ArrayList<String> missing = new ArrayList<>();
+            if (!Policy.phonePermission(this)) missing.add(Manifest.permission.READ_PHONE_STATE);
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.POST_NOTIFICATIONS);
+            new AlertDialog.Builder(this).setTitle("电话与提醒权限")
+                    .setMessage("电话权限仅检测是否来电或通话，不读取号码、联系人和通话记录。通知用于提醒休息开始与结束。")
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("授权", (dialog, which) -> requestPermissions(missing.toArray(new String[0]), 20)).show();
+        } else if (!Scheduler.exact(this)) {
+            open(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getPackageName())));
+        } else if (!BreakReminder.allowed(this)) {
+            open(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+        } else if (Policy.dialer(this) == null) appInfo();
+    }
+
+    private void startPlan() {
+        if (!permissionsReady() || Store.committed(this)) return;
+        String error = RecoveryVault.checkLocal(this);
+        if (error != null) { new AlertDialog.Builder(this).setMessage(error).setPositiveButton("知道了", null).show(); return; }
+        Store.prefs(this).edit().putBoolean("enabled", true).putLong("skip_until", 0)
+                .putString("verified_for", Policy.validationKey(this)).putString("error", "").commit();
+        if (Controller.reconcile(this, true) == 0) showHome();
     }
 
     private void showHome() {
         SharedPreferences prefs = Store.prefs(this);
-        boolean connection = FocusAccessibilityService.connected();
-        boolean ready = connection && FocusAccessibilityService.consented(this) && Policy.phonePermission(this)
-                && Scheduler.exact(this) && Policy.dialer(this) != null && RecoveryVault.ready(this) && BreakReminder.allowed(this);
         boolean enabled = prefs.getBoolean("enabled", false);
-        boolean frozen = Store.committed(this);
-        displayedCommitment = frozen;
-        displayedConnection = connection;
-        boolean tested = prefs.getBoolean("trial_completed", false)
-                && Policy.validationKey(this).equals(prefs.getString("trial_for", ""));
+        boolean committed = Store.committed(this);
+        boolean ready = permissionsReady();
+        boolean recovery = RecoveryVault.ready(this);
         ScrollView scroll = new ScrollView(this);
         LinearLayout layout = Ui.column(this);
         scroll.addView(layout);
         Ui.text(this, layout, "学习锁屏", 30, true);
-        Ui.text(this, layout, "免 USB 大众版 · 0.3.0", 18, true);
-        Ui.text(this, layout, "每天 19:00—23:00", 27, true);
-        Ui.text(this, layout, "每小时锁 50 分钟、休息 10 分钟。\n到点自动切换并提醒，23:00 全部解除。", 16, false);
-        restStatus = Ui.text(this, layout, frozen ? "休息中，闹钟将自动切换" : enabled ? "每日计划已启用" : "每日计划尚未启用", 18, true);
+        Ui.text(this, layout, "每天 19:00—23:00", 25, true);
+        Ui.text(this, layout, "学习 50 分钟，休息 10 分钟。\n可正常息屏，亮屏后按原时间继续。", 16, false);
+        status = Ui.text(this, layout, enabled ? "每日计划已启用" : "尚未开始", 20, true);
+        if (enabled && !FocusAccessibilityService.connected()) status.setText("计划保留；无障碍服务未连接，当前无法拦截其他应用");
         String error = prefs.getString("error", "");
-        if (!error.isEmpty()) Ui.text(this, layout, error, 15, false);
-        Ui.text(this, layout, "安装后在手机内授权，无需电脑。遮罩限制普通应用；电话、系统设置和卸载入口保留。通话期间暂时恢复手机使用，挂断后锁回。", 15, false);
+        if (!error.isEmpty()) Ui.text(this, layout, error, 14, false);
+        if (!ready) Ui.button(this, layout, "1. 完成手机授权", false, view -> grantNext());
+        else Ui.text(this, layout, "1. 手机授权已完成", 15, false);
+        if (!recovery) Ui.button(this, layout, "2. 保存急救码备份", false, view -> RecoveryUi.setup(this, this::showHome)).setEnabled(!enabled && !committed);
+        else Ui.text(this, layout, "2. 急救码已保存，长期有效，不按天更新", 15, false);
+        Ui.button(this, layout, enabled ? "每日计划运行中" : "3. 验证并开始学习", true, view -> startPlan())
+                .setEnabled(ready && recovery && !enabled && !committed);
+        Ui.text(this, layout, "开始前自动校验本机急救码；无需妻子现在在线。妻子端离线网页仍需稍后单独验证。", 13, false);
+        if (enabled || committed) Ui.button(this, layout, "离线急救：当晚解除", false, view -> RecoveryUi.unlock(this, this::showHome));
+        Ui.button(this, layout, "更多与帮助", false, view -> more());
+        Ui.text(this, layout, "普通来电和已适配的微信通话页可接听；聊天、桌面仍有遮罩。微信版本差异需实测。\n免 USB · 0.4.0", 13, false);
+        displayed = signature();
+        setContentView(scroll);
+    }
 
-        Ui.button(this, layout, connection && FocusAccessibilityService.consented(this)
-                ? "① 无障碍服务已连接 · 查看设置" : "① 开启无障碍专注服务", false, view -> accessibility());
-        if (FocusAccessibilityService.enabled(this) && !connection) Ui.text(this, layout, "系统开关已打开，服务尚未连接。稍候或重新开关服务；当前不能锁定其他应用。", 13, false);
-        Ui.button(this, layout, "无障碍开关变灰？查看办法", false, view -> new AlertDialog.Builder(this)
-                .setTitle("允许受限设置")
-                .setMessage("部分 Android 13 及以上手机会限制通过文件安装的应用开启无障碍。\n\n确认安装包来自可信来源后，在“设置 → 应用 → 学习锁屏 → 右上角更多”查找“允许受限设置”，再返回无障碍页面开启“学习锁屏 · 专注遮罩”。\n\n小米等系统的名称和位置可能不同，以本机提示为准。")
+    private void startTrial() {
+        if (!permissionsReady() || !RecoveryVault.ready(this) || Store.committed(this)
+                || Store.prefs(this).getBoolean("enabled", false)) return;
+        String error = RecoveryVault.checkLocal(this);
+        if (error != null) { Toast.makeText(this, error, Toast.LENGTH_LONG).show(); return; }
+        Store.prefs(this).edit().putBoolean("trial_completed", false).putBoolean("trial_interrupted", false)
+                .putString("error", "").putLong("trial_end", System.currentTimeMillis() + 120000)
+                .putLong("trial_elapsed", SystemClock.elapsedRealtime() + 120000).putInt("trial_boot", Store.boot(this)).commit();
+        Controller.reconcile(this, true);
+    }
+
+    private void more() {
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        labels.add("授权、息屏与后台说明");
+        actions.add(() -> new AlertDialog.Builder(this).setTitle("授权与后台")
+                .setMessage("本版用无障碍在普通应用上显示遮罩。关闭“无障碍快捷方式/悬浮按钮”可减少误触；保留服务总开关。换用普通悬浮窗会增加悬浮窗及后台授权，不能省掉系统授权。\n\n开关变灰：可信安装包可在“应用详情 → 更多 → 允许受限设置”后再开启。\n\n允许自启动、后台运行，减少省电限制。息屏不取消计划；亮屏解锁后恢复当前学习或休息段。厂商清理和关闭权限仍可使遮罩失效。")
                 .setNegativeButton("返回", null).setPositiveButton("打开应用详情", (dialog, which) -> appInfo()).show());
-        if (!Policy.phonePermission(this)) {
-            Ui.button(this, layout, "② 允许通话状态检测", false, view -> new AlertDialog.Builder(this)
-                    .setTitle("保留来电与通话")
-                    .setMessage("需要“电话”权限检测是否正在来电或通话，及时移除遮罩。本应用不读取号码、联系人或通话记录，也不会自动拨号。")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("继续授权", (dialog, which) -> requestPermissions(new String[]{Manifest.permission.READ_PHONE_STATE}, 21)).show());
-        } else Ui.text(this, layout, "② 通话状态权限已允许", 14, false);
-        if (Policy.dialer(this) == null) Ui.text(this, layout, "未找到拨号界面，请先在系统设置选择默认电话应用。", 14, false);
-        if (!Scheduler.exact(this)) {
-            Ui.button(this, layout, "③ 允许闹钟和提醒", false, view ->
-                    openSettings(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getPackageName()))));
-        } else Ui.text(this, layout, "③ 定时闹钟已允许", 14, false);
-        if (!BreakReminder.allowed(this)) {
-            Ui.button(this, layout, "④ 允许休息通知与声音", false, view -> {
-                if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 20);
-                } else openSettings(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
-            });
-        } else Ui.text(this, layout, "④ 休息通知已允许；请检查闹钟音量", 14, false);
-        Ui.button(this, layout, "后台运行与自启动说明", false, view -> new AlertDialog.Builder(this)
-                .setTitle("减少后台中断")
-                .setMessage("在本机应用设置中，按需允许学习锁屏自启动、后台运行，并关闭对本应用的省电限制。不同品牌入口不同。\n\n若系统清理或关闭无障碍服务，遮罩会失效；重新打开服务后恢复有效计划。重启后需先解锁手机，再确认服务已连接。请通过试运行验证本机行为。")
-                .setNegativeButton("返回", null).setPositiveButton("打开应用详情", (dialog, which) -> appInfo()).show());
-
-        Ui.button(this, layout, RecoveryVault.ready(this) ? "⑤ 急救码已托管 · 重新设置" : "⑤ 先把急救码交给妻子", false,
-                view -> RecoveryUi.setup(this, this::showHome)).setEnabled(!enabled && !frozen);
-        Ui.text(this, layout, RecoveryVault.ready(this) ? "锁屏内输入 8 位一次性码，无需微信。急救成功后当晚解除，次日 19:00 恢复。" : "长码随机生成，只显示一次，可复制交给妻子。未托管前不能试锁。", 14, false);
-        if (RecoveryVault.ready(this)) Ui.button(this, layout, enabled || frozen ? "离线急救：当晚解除" : "验证急救码（不改变计划）", false,
-                view -> RecoveryUi.unlock(this, this::showHome));
-
-        Ui.button(this, layout, "⑥ 先试运行 2 分钟", false, view -> new AlertDialog.Builder(this)
-                .setTitle("开始 2 分钟试运行")
-                .setMessage("锁 60 秒、休息 30 秒、再锁 30 秒，之后全部恢复。请切到桌面和其他应用，确认遮罩出现。\n\n准备另一部电话验证接听、拨打；挂断后应恢复遮罩。确认休息提醒、自动锁回及离线急救数字键盘可用。\n\n系统设置可关闭权限；本版不能禁止全部系统手势。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("开始试锁", (dialog, which) -> {
-                    if (Store.committed(this) || prefs.getBoolean("enabled", false)) return;
-                    prefs.edit().putBoolean("enabled", false).putBoolean("trial_completed", false)
-                            .putString("error", "").putLong("trial_end", System.currentTimeMillis() + 120000)
-                            .putLong("trial_elapsed", SystemClock.elapsedRealtime() + 120000)
-                            .putInt("trial_boot", Store.boot(this)).commit();
-                    Controller.reconcile(this, true);
-                }).show()).setEnabled(ready && !enabled && !frozen);
-
-        CheckBox calls = new CheckBox(this);
-        calls.setText("完整试运行通过：应用遮罩、电话、休息提醒、自动锁回和急救入口正常");
-        calls.setTextColor(Ui.INK);
-        calls.setEnabled(tested && !enabled && !frozen);
-        layout.addView(calls);
-        android.widget.Button arm = Ui.button(this, layout, enabled ? "关闭每日计划" : "启用每日计划", true, view -> {
-            if (Store.committed(this)) return;
-            if (enabled) {
-                Store.fail(this, "");
-                Controller.reconcile(this, false);
-                showHome();
-            } else {
-                new AlertDialog.Builder(this).setTitle("启用每日计划")
-                        .setMessage("每天 19:00–23:00，每小时锁 50 分钟、休息 10 分钟。应用内在当晚学习及休息期间不能修改计划或托管码。\n\n若当前在锁定段，确认后立即开始。急救成功后当晚不再锁，次日 19:00 恢复。系统设置仍可撤销权限。")
-                        .setNegativeButton("取消", null)
-                        .setPositiveButton("启用", (dialog, which) -> {
-                            prefs.edit().putBoolean("enabled", true).putString("error", "")
-                                    .putString("verified_for", Policy.validationKey(this)).commit();
-                            if (Controller.reconcile(this, true) == 0) showHome();
-                        }).show();
-            }
-        });
-        arm.setEnabled(!frozen && (enabled || ready && tested && calls.isChecked()));
-        calls.setOnCheckedChangeListener((button, checked) -> arm.setEnabled(!frozen && (enabled || ready && tested && checked)));
-
+        labels.add("两分钟检测（可选）");
+        actions.add(() -> new AlertDialog.Builder(this).setMessage("锁 60 秒、休息 30 秒、再锁 30 秒。请测试点击本应用图标、息屏再解锁、电话接听及自动休息。妻子不在也可先测试；每日计划启用后不能在应用内插入检测。")
+                .setNegativeButton("返回", null).setPositiveButton("开始检测", (dialog, which) -> startTrial()).show());
+        if (RecoveryVault.ready(this)) {
+            labels.add(Store.prefs(this).getBoolean("enabled", false) || Store.committed(this)
+                    ? "离线急救（当晚解除）" : "验证妻子端短码（可稍后做）");
+            actions.add(() -> RecoveryUi.unlock(this, this::showHome));
+        }
+        if (RecoveryVault.ready(this) && Store.prefs(this).getBoolean("recovery_used", false)) {
+            labels.add("急救码已用过，主动更换");
+            actions.add(() -> new AlertDialog.Builder(this).setMessage("原长码在你完成保存新码前继续有效。关闭每日计划且不在学习时段时，才能设置新长码；请同步更新妻子及纸质备份。")
+                    .setNegativeButton("返回", null).setPositiveButton("设置新码", (dialog, which) -> RecoveryUi.setup(this, this::showHome)).show());
+        }
+        if (Store.prefs(this).getBoolean("enabled", false) && !Store.committed(this)) {
+            labels.add("关闭每日计划");
+            actions.add(() -> { Store.fail(this, ""); Controller.reconcile(this, false); showHome(); });
+        }
         if (Policy.owner(this)) {
-            Ui.button(this, layout, "旧版升级：移除原设备管理身份", false, view -> new AlertDialog.Builder(this)
-                    .setTitle("移除旧版设备管理")
-                    .setMessage("大众版不需要设备所有者。此操作关闭计划并移除旧版管理身份，不清空手机，也不删除急救码。")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("移除", (dialog, which) -> {
-                        try {
-                            Store.fail(this, "");
-                            Controller.reconcile(this, false);
-                            Policy.manager(this).clearDeviceOwnerApp(getPackageName());
-                            showHome();
-                        } catch (RuntimeException errorRemove) { Toast.makeText(this, "系统拒绝移除，请保留提示以便排查", Toast.LENGTH_LONG).show(); }
+            labels.add("移除旧版设备管理身份");
+            actions.add(() -> new AlertDialog.Builder(this).setMessage("关闭计划并移除旧设备管理身份，不清空手机，不删除急救码。")
+                    .setNegativeButton("取消", null).setPositiveButton("移除", (dialog, which) -> {
+                        try { Store.fail(this, ""); Controller.reconcile(this, false); Policy.manager(this).clearDeviceOwnerApp(getPackageName()); showHome(); }
+                        catch (RuntimeException error) { Toast.makeText(this, "系统拒绝移除，请保留提示", Toast.LENGTH_LONG).show(); }
                     }).show());
         }
-        Ui.text(this, layout, "无联网权限；不读屏幕文字、联系人或通话记录。包名与通话状态仅在本机用于专注遮罩。\n关闭服务、强行停止、卸载、改时间或厂商后台清理可绕过限制。", 13, false);
-        setContentView(scroll);
+        new AlertDialog.Builder(this).setTitle("更多与帮助").setItems(labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run()).setNegativeButton("返回", null).show();
     }
 }

@@ -17,10 +17,13 @@ import java.time.ZoneId;
 
 final class RecoveryUi {
     static void setup(Activity activity, Runnable saved) {
-        if (Store.committed(activity) || Store.prefs(activity).getBoolean("enabled", false)) return;
+        if (!RecoveryVault.replaceable(activity)) {
+            Toast.makeText(activity, "未使用的长码保持不变；更换前需先关闭计划并结束学习时段", Toast.LENGTH_LONG).show();
+            return;
+        }
         String master = RecoveryCrypto.digits(64);
         LinearLayout layout = Ui.column(activity);
-        Ui.text(activity, layout, "请把长码交给妻子保管，并让她保存离线急救网页。此长码仅在本次设置时显示。", 15, false);
+        Ui.text(activity, layout, "请把长码交给妻子，或先保存成封存的纸质备份。此长码只显示一次，长期有效，不会每天更新；实际急救使用后才提供更换入口。", 15, false);
         TextView code = Ui.text(activity, layout, RecoveryCrypto.grouped(master), 19, true);
         code.setTypeface(Typeface.MONOSPACE);
         code.setTextIsSelectable(false);
@@ -38,12 +41,12 @@ final class RecoveryUi {
         ScrollView scroll = new ScrollView(activity);
         scroll.addView(layout);
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("托管离线急救码")
-                .setView(scroll).setNegativeButton("取消", null).setPositiveButton("妻子已保存，完成托管", null).create();
+                .setView(scroll).setNegativeButton("取消", null).setPositiveButton("备份已保存，完成设置", null).create();
         dialog.setOnShowListener(ignored -> {
             dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                if (!copied[0]) { Toast.makeText(activity, "请先复制并交给妻子保存", Toast.LENGTH_SHORT).show(); return; }
-                if (Store.committed(activity) || Store.prefs(activity).getBoolean("enabled", false)) { dialog.dismiss(); return; }
+                if (!copied[0]) { Toast.makeText(activity, "请先复制保存；妻子不在时可先封存纸质备份", Toast.LENGTH_SHORT).show(); return; }
+                if (!RecoveryVault.replaceable(activity)) { dialog.dismiss(); return; }
                 try {
                     RecoveryVault.install(activity, master);
                     ClipboardManager clipboard = activity.getSystemService(ClipboardManager.class);
@@ -65,8 +68,8 @@ final class RecoveryUi {
         String challenge = RecoveryVault.challenge(activity);
         boolean practice = !Store.prefs(activity).getBoolean("enabled", false) && Store.trialEnd(activity) == 0;
         LinearLayout layout = Ui.column(activity);
-        TextView challengeView = Ui.text(activity, layout, "把挑战号告诉妻子：\n" + RecoveryCrypto.grouped(challenge), 20, true);
-        TextView info = Ui.text(activity, layout, "她在离线网页输入保管码和挑战号，读出 8 位码。挑战号 15 分钟有效。", 14, false);
+        TextView challengeView = Ui.text(activity, layout, "本次临时挑战号（不是保管长码）：\n" + RecoveryCrypto.grouped(challenge), 20, true);
+        TextView info = Ui.text(activity, layout, "64 位保管长码保持不变。她在离线网页输入长码和本次挑战号，读出 8 位码。挑战号 15 分钟有效。", 14, false);
         TextView entered = Ui.text(activity, layout, "请输入 8 位一次性码", 21, true);
         entered.setTypeface(Typeface.MONOSPACE);
         entered.setGravity(Gravity.CENTER);
@@ -120,6 +123,7 @@ final class RecoveryUi {
                                 : rehearsing ? "试运行已解除，请重新完整试运行后再启用计划。" : "急救码验证成功，未改变学习计划。");
                 if (scheduled) edit.putLong("skip_until", RecoveryRules.tonightEnd(System.currentTimeMillis(), ZoneId.systemDefault()));
                 if (rehearsing) edit.putBoolean("trial_completed", false);
+                if (!practice) edit.putBoolean("recovery_used", true);
                 edit.commit();
                 Controller.reconcile(activity, false);
                 dialog.dismiss();

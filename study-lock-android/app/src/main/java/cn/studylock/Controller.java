@@ -17,16 +17,14 @@ final class Controller {
             if (prefs.getBoolean("enabled", false) && !Policy.validationKey(context).equals(prefs.getString("verified_for", ""))) {
                 throw new IllegalStateException("版本、系统或拨号应用已变化。原有急救码保留，请完成授权后重新试锁。");
             }
-            if (armed && (!FocusAccessibilityService.consented(context) || !Policy.phonePermission(context))) {
-                throw new IllegalStateException("无障碍说明未确认或电话状态权限被关闭，计划已停止。请重新授权并试锁。");
-            }
             long end = Store.end(context);
             if (end == 0) {
                 BreakReminder.transition(context, Store.committed(context) ? "rest" : "off");
                 if (prefs.getLong("trial_end", 0) > 0 && Store.trialEnd(context) == 0) {
                     boolean sameBoot = prefs.getInt("trial_boot", -2) == Store.boot(context);
                     prefs.edit().putLong("trial_end", 0).putLong("trial_elapsed", 0)
-                            .putBoolean("trial_completed", sameBoot && FocusAccessibilityService.connected())
+                            .putBoolean("trial_completed", sameBoot && FocusAccessibilityService.connected()
+                                    && !prefs.getBoolean("trial_interrupted", false))
                             .putString("trial_for", sameBoot ? Policy.validationKey(context) : "").commit();
                 }
                 Scheduler.schedule(context, 0);
@@ -35,11 +33,11 @@ final class Controller {
             }
             // Arm both release alarms before displaying the accessibility overlay.
             Scheduler.schedule(context, end);
-            if (!FocusAccessibilityService.connected()) {
-                FocusAccessibilityService.refreshSoon();
-                return 0; // Never claim a disconnected service has locked the phone.
-            }
-            BreakReminder.transition(context, "lock");
+            boolean capable = FocusAccessibilityService.connected() && FocusAccessibilityService.consented(context)
+                    && Policy.phonePermission(context);
+            if (capable) BreakReminder.transition(context, "lock");
+            // Reopening our activity and service interruptions do not cancel the stored session.
+            // The screen reports an unavailable service instead of claiming other apps are blocked.
             FocusAccessibilityService.refreshSoon();
             if (launch) context.startActivity(new Intent(context, FocusActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP));

@@ -22,6 +22,26 @@ final class RecoveryVault {
                 && !prefs.getString("recovery_cipher", "").isEmpty();
     }
 
+    static boolean replaceable(Context context) {
+        SharedPreferences prefs = Store.prefs(context);
+        return RecoveryRules.mayReplace(ready(context), prefs.getBoolean("recovery_used", false),
+                prefs.getBoolean("enabled", false), Store.committed(context));
+    }
+
+    /** Checks local storage and the public protocol fixture without revealing or consuming a code. */
+    static String checkLocal(Context context) {
+        if (!ready(context)) return "请先保存急救码备份。";
+        try {
+            if (!"11359506".equals(RecoveryCrypto.response("0123456789".repeat(6) + "0123", "123456789012"))) {
+                return "急救算法自检失败，请勿开始学习。";
+            }
+            String saved = master(context);
+            if (!saved.matches("[0-9]{64}") || !RecoveryCrypto.equal(RecoveryCrypto.hash(saved),
+                    Store.prefs(context).getString("recovery_hash", ""))) return "急救码本地校验失败，请先处理备份。";
+            return null;
+        } catch (Exception error) { return "急救码存储暂不可用，请保持计划关闭并保留纸质备份。"; }
+    }
+
     private static SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
@@ -43,6 +63,7 @@ final class RecoveryVault {
         Store.prefs(context).edit().putString("recovery_cipher", Base64.encodeToString(encrypted, Base64.NO_WRAP))
                 .putString("recovery_iv", Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
                 .putString("recovery_hash", RecoveryCrypto.hash(master)).putBoolean("recovery_confirmed", true)
+                .putBoolean("recovery_used", false)
                 .remove("recovery_challenge").putInt("recovery_failures", 0).putLong("recovery_wait_wall", 0)
                 .putLong("recovery_wait_elapsed", 0).commit();
     }

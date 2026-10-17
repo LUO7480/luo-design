@@ -17,10 +17,14 @@ import java.util.Locale;
 public final class FocusActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView remaining;
+    private TextView serviceStatus;
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             long end = Store.end(FocusActivity.this);
-            if (end <= 0 || !FocusAccessibilityService.connected()) { leave(); return; }
+            if (end <= 0) { leave(); return; }
+            serviceStatus.setText(FocusAccessibilityService.connected() && Policy.phonePermission(FocusActivity.this)
+                    ? "可正常息屏。通话页面可用，切到桌面或聊天仍会被遮住。"
+                    : "计时仍继续；服务或电话权限不可用，当前无法拦截其他应用，请从系统设置恢复。");
             long seconds = Math.max(0, (end - System.currentTimeMillis() + 999) / 1000);
             remaining.setText(String.format(Locale.ROOT, "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60));
             handler.postDelayed(this, 1000);
@@ -50,11 +54,7 @@ public final class FocusActivity extends Activity {
             }
         });
         Ui.button(this, layout, "离线急救解锁", false, view -> RecoveryUi.unlock(this, this::leave));
-        Ui.button(this, layout, "系统授权设置", false, view -> {
-            try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); }
-            catch (RuntimeException error) { Toast.makeText(this, "请从手机设置打开无障碍服务", Toast.LENGTH_LONG).show(); }
-        });
-        Ui.text(this, layout, "免 USB 版：系统设置可关闭权限。通话期间暂停遮罩，挂断后恢复。", 13, false);
+        serviceStatus = Ui.text(this, layout, "", 13, false);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.addView(layout);

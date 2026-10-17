@@ -5,6 +5,9 @@ import java.time.ZoneId;
 
 public final class RecoveryRules {
     private RecoveryRules() {}
+    public static boolean mayReplace(boolean ready, boolean used, boolean enabled, boolean committed) {
+        return !enabled && !committed && (!ready || used);
+    }
     public static boolean challengeValid(long now, long elapsed, long issuedWall, long issuedElapsed, boolean sameBoot) {
         return sameBoot && now >= issuedWall && now - issuedWall < 900000
                 && elapsed >= issuedElapsed && elapsed - issuedElapsed < 900000;

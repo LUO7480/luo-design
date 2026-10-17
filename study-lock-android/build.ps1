@@ -17,10 +17,11 @@ function Invoke-Checked([string]$Executable, [string[]]$Arguments) {
 }
 $taskBuild = Join-Path $PSScriptRoot 'build'
 New-Item -ItemType Directory -Force -Path "$taskBuild\classes", "$taskBuild\generated", "$taskBuild\dex", "$taskBuild\tests", 'dist' | Out-Null
-Invoke-Checked $taskJavac @('-encoding','UTF-8','-d',"$taskBuild\tests",'app\src\main\java\cn\studylock\Schedule.java','app\src\main\java\cn\studylock\SessionTimes.java','app\src\main\java\cn\studylock\RecoveryCrypto.java','app\src\main\java\cn\studylock\RecoveryRules.java','app\src\main\java\cn\studylock\BlockingRules.java','tests\ScheduleTest.java','tests\RecoveryTest.java','tests\BlockingRulesTest.java')
+Invoke-Checked $taskJavac @('-encoding','UTF-8','-d',"$taskBuild\tests",'app\src\main\java\cn\studylock\Schedule.java','app\src\main\java\cn\studylock\SessionTimes.java','app\src\main\java\cn\studylock\RecoveryCrypto.java','app\src\main\java\cn\studylock\RecoveryRules.java','app\src\main\java\cn\studylock\BlockingRules.java','app\src\main\java\cn\studylock\CallRules.java','tests\ScheduleTest.java','tests\RecoveryTest.java','tests\BlockingRulesTest.java','tests\CallRulesTest.java')
 Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'ScheduleTest')
 Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'RecoveryTest')
 Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'BlockingRulesTest')
+Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'CallRulesTest')
 Invoke-Checked (Join-Path $taskTools 'aapt2.exe') @('compile','--dir','app\src\main\res','-o',"$taskBuild\resources.zip")
 # Gradle owns package/version/SDK metadata. Materialize it for the standalone SDK build too.
 $taskConfig = Get-Content -LiteralPath 'app\build.gradle' -Raw

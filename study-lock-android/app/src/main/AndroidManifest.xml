@@ -22,6 +22,7 @@
         <package android:name="com.android.incallui" />
         <package android:name="com.android.server.telecom" />
         <package android:name="com.android.emergency" />
+        <package android:name="com.tencent.mm" />
     </queries>
     <application android:label="学习锁屏" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true" android:directBootAware="true">
         <activity android:name=".MainActivity" android:exported="true">

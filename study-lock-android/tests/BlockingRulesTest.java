@@ -16,7 +16,7 @@ public final class BlockingRulesTest {
         expect("declined disclosure", false, 200, 100, false, true, false, false, false, false);
         expect("phone permission revoked", false, 200, 100, true, false, false, false, false, false);
         expect("system credential screen stays usable", false, 200, 100, true, true, true, false, false, false);
-        expect("incoming or active call takes priority", false, 200, 100, true, true, false, true, false, false);
+        expect("recognized incoming or active call surface takes priority", false, 200, 100, true, true, false, true, false, false);
         expect("offline recovery keypad stays usable", false, 200, 100, true, true, false, false, true, false);
         expect("dialer and permission settings stay usable", false, 200, 100, true, true, false, false, false, true);
         expect("hangup restores lesson", true, 200, 101, true, true, false, false, false, false);

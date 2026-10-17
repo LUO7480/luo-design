@@ -41,6 +41,11 @@ public final class RecoveryTest {
         ZoneId zone = ZoneId.of("Asia/Shanghai");
         check(RecoveryRules.tonightEnd(time("2026-10-17T20:13:00+08:00"), zone) == time("2026-10-17T23:00:00+08:00"), "Emergency exemption ends tonight");
         check(RecoveryRules.tonightEnd(time("2026-10-17T23:01:00+08:00"), zone) == time("2026-10-17T23:01:00+08:00"), "Emergency never exempts the next day");
+        check(RecoveryRules.mayReplace(false, false, false, false), "Initial setup allowed");
+        check(!RecoveryRules.mayReplace(true, false, false, false), "Unused master cannot be accidentally regenerated");
+        check(RecoveryRules.mayReplace(true, true, false, false), "Actual emergency permits deliberate replacement");
+        check(!RecoveryRules.mayReplace(true, true, true, false), "Armed plan preserves its backup");
+        check(!RecoveryRules.mayReplace(true, true, false, true), "Trial and rest keep the backup fixed");
         System.out.println("PASS: " + assertions + " recovery assertions; HMAC interoperability, expiry, cooldown, and tonight-only exemption");
     }
 }
