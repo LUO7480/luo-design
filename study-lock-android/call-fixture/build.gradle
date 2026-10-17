@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.tencent.mm'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'com.tencent.mm'
+        minSdk 33
+        targetSdk 36
+        versionCode 1
+        versionName 'ci-fixture'
+    }
+}

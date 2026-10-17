@@ -23,31 +23,32 @@ final class Controller {
                 if (prefs.getLong("trial_end", 0) > 0 && Store.trialEnd(context) == 0) {
                     boolean sameBoot = prefs.getInt("trial_boot", -2) == Store.boot(context);
                     prefs.edit().putLong("trial_end", 0).putLong("trial_elapsed", 0)
-                            .putBoolean("trial_completed", sameBoot && FocusAccessibilityService.connected()
+                            .putBoolean("trial_completed", sameBoot && OverlayService.connected()
                                     && !prefs.getBoolean("trial_interrupted", false))
                             .putString("trial_for", sameBoot ? Policy.validationKey(context) : "").commit();
                 }
                 Scheduler.schedule(context, 0);
-                FocusAccessibilityService.refreshSoon();
+                OverlayService.sync(context);
                 return 0;
             }
-            // Arm both release alarms before displaying the accessibility overlay.
+            // Arm both release alarms before displaying the application overlay.
             Scheduler.schedule(context, end);
-            boolean capable = FocusAccessibilityService.connected() && FocusAccessibilityService.consented(context)
+            OverlayService.sync(context);
+            boolean capable = OverlayService.connected() && OverlayGrants.ready(context)
                     && Policy.phonePermission(context);
             if (capable) BreakReminder.transition(context, "lock");
             // Reopening our activity and service interruptions do not cancel the stored session.
             // The screen reports an unavailable service instead of claiming other apps are blocked.
-            FocusAccessibilityService.refreshSoon();
-            if (launch) context.startActivity(new Intent(context, FocusActivity.class)
+            OverlayService.refreshSoon();
+            if (launch && OverlayGrants.ready(context) && Policy.phonePermission(context)) context.startActivity(new Intent(context, FocusActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-            return end;
+            return launch && (!OverlayGrants.ready(context) || !Policy.phonePermission(context)) ? 0 : end;
         } catch (RuntimeException error) {
             Log.e("StudyLock", "Lock failed; restoring access", error);
             Store.fail(context, error.getMessage() == null ? "系统拒绝锁定，已停止计划。" : error.getMessage());
             try { Policy.release(context); } catch (RuntimeException releaseError) { Log.e("StudyLock", "Policy release failed", releaseError); }
             try { Scheduler.schedule(context, 0); } catch (RuntimeException ignored) {}
-            FocusAccessibilityService.refreshSoon();
+            OverlayService.refreshSoon();
             return 0;
         }
     }

@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="accessibility_description">学习时识别当前应用包名、界面类名并显示专注遮罩。仅放行电话和已适配的微信通话页，聊天与桌面仍受限制。仅在本机处理，不读取屏幕文字，不点击其他应用，不联网。可在系统设置关闭服务或卸载。</string>
-</resources>

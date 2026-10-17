@@ -22,7 +22,7 @@ public final class FocusActivity extends Activity {
         @Override public void run() {
             long end = Store.end(FocusActivity.this);
             if (end <= 0) { leave(); return; }
-            serviceStatus.setText(FocusAccessibilityService.connected() && Policy.phonePermission(FocusActivity.this)
+            serviceStatus.setText(OverlayService.connected() && OverlayGrants.ready(FocusActivity.this) && Policy.phonePermission(FocusActivity.this)
                     ? "可正常息屏。通话页面可用，切到桌面或聊天仍会被遮住。"
                     : "计时仍继续；服务或电话权限不可用，当前无法拦截其他应用，请从系统设置恢复。");
             long seconds = Math.max(0, (end - System.currentTimeMillis() + 999) / 1000);
@@ -63,7 +63,7 @@ public final class FocusActivity extends Activity {
 
     @Override public void onResume() {
         super.onResume();
-        FocusAccessibilityService.appVisible(true);
+        OverlayService.appVisible(true);
         if (Controller.reconcile(this, false) <= 0) { leave(); return; }
         handler.removeCallbacks(tick);
         tick.run();
@@ -83,7 +83,7 @@ public final class FocusActivity extends Activity {
         }
     }
 
-    @Override public void onPause() { FocusAccessibilityService.appVisible(false); super.onPause(); }
+    @Override public void onPause() { OverlayService.appVisible(false); super.onPause(); }
 
     private void leave() {
         handler.removeCallbacks(tick);

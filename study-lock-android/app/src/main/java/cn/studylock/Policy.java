@@ -49,11 +49,13 @@ final class Policy {
         String phone = dialer(context);
         if (phone != null) allowed.add(phone);
         // System permission and uninstall surfaces remain usable by design.
-        for (String action : new String[]{Settings.ACTION_SETTINGS, Settings.ACTION_ACCESSIBILITY_SETTINGS,
+        for (String action : new String[]{Settings.ACTION_SETTINGS, Settings.ACTION_USAGE_ACCESS_SETTINGS, Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM}) {
             Intent intent = new Intent(action);
             if (action.equals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    || action.equals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) intent.setData(Uri.parse("package:" + context.getPackageName()));
+                    || action.equals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    || action.equals(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    || action.equals(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) intent.setData(Uri.parse("package:" + context.getPackageName()));
             ResolveInfo result = context.getPackageManager().resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
             if (result != null && result.activityInfo != null && systemPackage(context, result.activityInfo.packageName)) {
                 allowed.add(result.activityInfo.packageName);

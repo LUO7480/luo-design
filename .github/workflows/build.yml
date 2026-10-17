@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'study-lock-android/app/**'
+      - 'study-lock-android/call-fixture/**'
       - 'study-lock-android/tests/**'
       - 'study-lock-android/*.gradle'
       - 'study-lock-android/gradle.properties'
@@ -57,7 +58,7 @@ jobs:
           sleep 3
           kill -0 "$task_emulator_pid" || { cat build/native-proof/emulator.log; exit 1; }
       - name: Build disposable test APKs
-        run: gradle --no-daemon --console=plain :app:assembleDebug :app:assembleDebugAndroidTest
+        run: gradle --no-daemon --console=plain :app:assembleDebug :app:assembleDebugAndroidTest :call-fixture:assembleDebug
       - name: Verify icon reopen, screen off and service reconnect
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
@@ -67,8 +68,15 @@ jobs:
           adb shell wm dismiss-keyguard
           adb install -r app/build/outputs/apk/debug/app-debug.apk
           adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          timeout 150 adb shell am instrument -w -r cn.studylock.test/cn.studylock.ContinuityInstrumentation | tee build/native-proof/tests.log
+          adb install -r call-fixture/build/outputs/apk/debug/call-fixture-debug.apk
+          timeout 180 adb shell am instrument -w -r cn.studylock.test/cn.studylock.ContinuityInstrumentation | tee build/native-proof/tests.log
           grep -q STUDYLOCK_NATIVE_PASS build/native-proof/tests.log
+      - name: Save Android diagnostics
+        if: always()
+        run: |
+          mkdir -p build/native-proof
+          timeout 15 "$ANDROID_HOME/platform-tools/adb" logcat -d -s StudyLock AndroidRuntime > build/native-proof/android.log || true
+          timeout 15 "$ANDROID_HOME/platform-tools/adb" shell dumpsys activity services cn.studylock > build/native-proof/services.log || true
       - name: Save lifecycle evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -108,11 +116,12 @@ jobs:
       - name: Verify schedule and automatic release rules
         run: |
           mkdir -p build/checks
-          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java app/src/main/java/cn/studylock/RecoveryCrypto.java app/src/main/java/cn/studylock/RecoveryRules.java app/src/main/java/cn/studylock/BlockingRules.java app/src/main/java/cn/studylock/CallRules.java tests/ScheduleTest.java tests/RecoveryTest.java tests/BlockingRulesTest.java tests/CallRulesTest.java
+          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java app/src/main/java/cn/studylock/RecoveryCrypto.java app/src/main/java/cn/studylock/RecoveryRules.java app/src/main/java/cn/studylock/BlockingRules.java app/src/main/java/cn/studylock/CallRules.java app/src/main/java/cn/studylock/ForegroundTracker.java tests/ForegroundTrackerTest.java tests/ScheduleTest.java tests/RecoveryTest.java tests/BlockingRulesTest.java tests/CallRulesTest.java
           java -cp build/checks ScheduleTest
           java -cp build/checks RecoveryTest
           java -cp build/checks BlockingRulesTest
           java -cp build/checks CallRulesTest
+          java -cp build/checks ForegroundTrackerTest
           node tests/recovery-helper.test.cjs
 
       - name: Build native APK
