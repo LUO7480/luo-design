@@ -46,7 +46,7 @@ public final class ContinuityInstrumentation extends Instrumentation {
     }
 
     private void icon() throws Exception {
-        shell("am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n cn.studylock/.MainActivity");
+        shell("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n cn.studylock/.MainActivity");
         SystemClock.sleep(500);
     }
 
@@ -100,9 +100,16 @@ public final class ContinuityInstrumentation extends Instrumentation {
             check(Store.prefs(target).getLong("trial_end", 0) == end, "wake preserves original deadline");
 
             // This separate CI-only APK simulates WeChat's activity identities, without an account.
-            shell("am start -W -n com.tencent.mm/com.tencent.mm.plugin.voip.ui.VideoActivity");
+            shell("am start -n com.tencent.mm/com.tencent.mm.plugin.voip.ui.VideoActivity");
             await(() -> !OverlayService.covering(), "separate app call surface is allowed using real usage events");
-            shell("am start -W -n com.tencent.mm/com.tencent.mm.ui.LauncherUI");
+            shell("input keyevent KEYCODE_SLEEP");
+            await(() -> !target.getSystemService(PowerManager.class).isInteractive(), "call surface can sleep");
+            shell("input keyevent KEYCODE_WAKEUP");
+            shell("wm dismiss-keyguard");
+            await(() -> target.getSystemService(PowerManager.class).isInteractive(), "call surface wakes");
+            SystemClock.sleep(700);
+            await(() -> !OverlayService.covering(), "call identity is restored after screen cycle");
+            shell("am start -n com.tencent.mm/com.tencent.mm.ui.LauncherUI");
             await(OverlayService::covering, "same app chat surface is covered using real usage events");
             home();
             await(OverlayService::covering, "leaving call or chat never unlocks home");
@@ -141,6 +148,11 @@ public final class ContinuityInstrumentation extends Instrumentation {
             outcome = Activity.RESULT_OK;
         } catch (Throwable error) {
             result.putString("stream", "STUDYLOCK_NATIVE_FAIL " + android.util.Log.getStackTraceString(error));
+            try {
+                Bundle details = new Bundle();
+                details.putString("stream", shell("dumpsys activity services cn.studylock"));
+                sendStatus(0, details);
+            } catch (Exception ignored) {}
         } finally {
             if (target != null) {
                 Store.fail(target, "");

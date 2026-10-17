@@ -9,6 +9,7 @@ import android.os.Build;
 final class ForegroundReader {
     final ForegroundTracker surface = new ForegroundTracker();
     private long cursor = -1;
+    void reset() { cursor = -1; surface.reset(); }
 
     void refresh(Context context) {
         long now = System.currentTimeMillis();

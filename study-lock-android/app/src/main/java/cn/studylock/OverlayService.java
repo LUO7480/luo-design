@@ -49,7 +49,7 @@ public final class OverlayService extends Service {
     private long observedEnd = -1;
     private final BroadcastReceiver screen = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            reader.surface.clearSurface();
+            reader.reset();
             if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) hide();
             refreshSoon();
         }
@@ -151,7 +151,7 @@ public final class OverlayService extends Service {
             if (!attached) {
                 WindowManager.LayoutParams params = new WindowManager.LayoutParams(-1, -1,
                         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.OPAQUE);
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
                 params.gravity = Gravity.TOP | Gravity.START;
                 params.setTitle("学习锁屏 · 专注遮罩");
                 windows.addView(overlay, params);
