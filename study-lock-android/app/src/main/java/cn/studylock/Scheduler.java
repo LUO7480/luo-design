@@ -21,11 +21,12 @@ final class Scheduler {
         manager.cancel(pending(context, 1));
         manager.cancel(pending(context, 2));
         SharedPreferences prefs = Store.prefs(context);
-        if (end == 0 && !prefs.getBoolean("enabled", false)) return;
+        if (end == 0 && !prefs.getBoolean("enabled", false) && Store.trialEnd(context) == 0) return;
         if (!exact(context)) throw new IllegalStateException("缺少“闹钟和提醒”权限，已停止锁定。");
         long now = System.currentTimeMillis();
-        long next = end > 0 ? end : Schedule.nextBoundary(now, ZoneId.systemDefault());
-        manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending(context, 1));
+        long next = end > 0 ? end : Store.nextBoundary(context);
+        PendingIntent show = PendingIntent.getActivity(context, 3, new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        manager.setAlarmClock(new AlarmManager.AlarmClockInfo(next, show), pending(context, 1));
         if (end > 0) {
             long deadline = prefs.getLong("deadline_elapsed", 0);
             if (prefs.getLong("deadline_wall", 0) != end || prefs.getInt("deadline_boot", -2) != Store.boot(context)) {

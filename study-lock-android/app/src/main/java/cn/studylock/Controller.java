@@ -12,13 +12,18 @@ final class Controller {
             if ((prefs.getBoolean("enabled", false) || prefs.getLong("trial_end", 0) > 0) && !Policy.owner(context)) {
                 throw new IllegalStateException("设备管理权限不可用，已停止锁定。");
             }
+            if ((prefs.getBoolean("enabled", false) || Store.trialEnd(context) > 0) && !RecoveryVault.ready(context)) {
+                throw new IllegalStateException("请先托管离线急救码，再启用锁定。");
+            }
             if (prefs.getBoolean("enabled", false) && !Policy.validationKey(context).equals(prefs.getString("verified_for", ""))) {
                 throw new IllegalStateException("系统或拨号应用已变化，请重新试锁并验证电话。");
             }
             long end = Store.end(context);
             if (end == 0) {
-                Policy.release(context);
-                if (prefs.getLong("trial_end", 0) > 0) {
+                boolean resting = Store.committed(context);
+                if (resting) Policy.pause(context); else Policy.release(context);
+                BreakReminder.transition(context, resting ? "rest" : "off");
+                if (prefs.getLong("trial_end", 0) > 0 && Store.trialEnd(context) == 0) {
                     boolean sameBoot = prefs.getInt("trial_boot", -2) == Store.boot(context);
                     prefs.edit().putLong("trial_end", 0).putLong("trial_elapsed", 0)
                             .putBoolean("trial_completed", sameBoot)
@@ -30,6 +35,7 @@ final class Controller {
             // Arm both release alarms before changing any system policy.
             Scheduler.schedule(context, end);
             Policy.prepare(context);
+            BreakReminder.transition(context, "lock");
             if (launch) {
                 // Show behind the existing keyguard. FocusActivity enters lock task only after unlock.
                 context.startActivity(new Intent(context, FocusActivity.class)

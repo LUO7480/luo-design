@@ -29,12 +29,9 @@ final class Policy {
         return result != null && result.activityInfo != null ? result.activityInfo.packageName : null;
     }
 
-    static String validationKey(Context context) { return Build.FINGERPRINT + "|" + dialer(context); }
+    static String validationKey(Context context) { return "breaks-and-recovery-v2|" + Build.FINGERPRINT + "|" + dialer(context); }
 
-    static void prepare(Context context) {
-        if (!owner(context)) throw new IllegalStateException("尚未配置设备管理，不能强制锁定。");
-        String phone = dialer(context);
-        if (phone == null) throw new IllegalStateException("没有找到系统拨号界面，已停止锁定。");
+    private static void snapshot(Context context) {
         DevicePolicyManager manager = manager(context);
         ComponentName admin = admin(context);
         SharedPreferences prefs = Store.prefs(context);
@@ -45,6 +42,15 @@ final class Policy {
                     .putBoolean("old_window_restriction", manager.getUserRestrictions(admin).getBoolean(UserManager.DISALLOW_CREATE_WINDOWS))
                     .putBoolean("policy_saved", true).commit();
         }
+    }
+
+    static void prepare(Context context) {
+        if (!owner(context)) throw new IllegalStateException("尚未配置设备管理，不能强制锁定。");
+        String phone = dialer(context);
+        if (phone == null) throw new IllegalStateException("没有找到系统拨号界面，已停止锁定。");
+        DevicePolicyManager manager = manager(context);
+        ComponentName admin = admin(context);
+        snapshot(context);
         LinkedHashSet<String> allowed = new LinkedHashSet<>();
         allowed.add(context.getPackageName());
         allowed.add(phone);
@@ -83,5 +89,20 @@ final class Policy {
         java.util.Set<String> old = prefs.getStringSet("old_packages", java.util.Collections.emptySet());
         manager.setLockTaskPackages(admin, old.toArray(new String[0]));
         prefs.edit().putBoolean("policy_saved", false).remove("deadline_wall").remove("deadline_elapsed").remove("deadline_boot").commit();
+    }
+
+    static void pause(Context context) {
+        SharedPreferences prefs = Store.prefs(context);
+        if (!owner(context)) return;
+        snapshot(context);
+        DevicePolicyManager manager = manager(context);
+        ComponentName admin = admin(context);
+        manager.setLockTaskPackages(admin, new String[0]);
+        manager.setLockTaskFeatures(admin, prefs.getInt("old_features", DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS));
+        if (!prefs.getBoolean("old_window_restriction", false)) manager.clearUserRestriction(admin, UserManager.DISALLOW_CREATE_WINDOWS);
+        manager.setLockTaskPackages(admin, prefs.getStringSet("old_packages", java.util.Collections.emptySet()).toArray(new String[0]));
+        // Keep date/time protection until 23:00, including the ten-minute rest windows.
+        manager.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_DATE_TIME);
+        prefs.edit().remove("deadline_wall").remove("deadline_elapsed").remove("deadline_boot").commit();
     }
 }

@@ -16,7 +16,9 @@ public final class AlarmReceiver extends BroadcastReceiver {
             // Still release expired policy; BOOT_COMPLETED enforces after credential unlock.
             try {
                 long end = Store.end(context);
-                if (end == 0) Policy.release(context);
+                if (end == 0) {
+                    if (Store.committed(context)) Policy.pause(context); else Policy.release(context);
+                }
                 Scheduler.schedule(context, end);
             } catch (RuntimeException error) {
                 Store.fail(context, "重启后定时权限不可用，请解锁手机后检查。");

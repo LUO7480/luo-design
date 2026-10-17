@@ -17,8 +17,9 @@ function Invoke-Checked([string]$Executable, [string[]]$Arguments) {
 }
 $taskBuild = Join-Path $PSScriptRoot 'build'
 New-Item -ItemType Directory -Force -Path "$taskBuild\classes", "$taskBuild\generated", "$taskBuild\dex", "$taskBuild\tests", 'dist' | Out-Null
-Invoke-Checked $taskJavac @('-encoding','UTF-8','-d',"$taskBuild\tests",'app\src\main\java\cn\studylock\Schedule.java','app\src\main\java\cn\studylock\SessionTimes.java','tests\ScheduleTest.java')
+Invoke-Checked $taskJavac @('-encoding','UTF-8','-d',"$taskBuild\tests",'app\src\main\java\cn\studylock\Schedule.java','app\src\main\java\cn\studylock\SessionTimes.java','app\src\main\java\cn\studylock\RecoveryCrypto.java','app\src\main\java\cn\studylock\RecoveryRules.java','tests\ScheduleTest.java','tests\RecoveryTest.java')
 Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'ScheduleTest')
+Invoke-Checked $taskJava @('-cp',"$taskBuild\tests",'RecoveryTest')
 Invoke-Checked (Join-Path $taskTools 'aapt2.exe') @('compile','--dir','app\src\main\res','-o',"$taskBuild\resources.zip")
 # Gradle owns package/version/SDK metadata. Materialize it for the standalone SDK build too.
 $taskConfig = Get-Content -LiteralPath 'app\build.gradle' -Raw
@@ -37,6 +38,7 @@ $taskSdkElement.SetAttribute('minSdkVersion', $taskNamespace, (Read-AndroidValue
 $taskSdkElement.SetAttribute('targetSdkVersion', $taskNamespace, (Read-AndroidValue 'targetSdk\s+(\d+)')) | Out-Null
 $taskManifest.manifest.PrependChild($taskSdkElement) | Out-Null
 $taskManifest.Save("$taskBuild\AndroidManifest.xml")
+$taskApk = 'dist\学习锁屏-' + (Read-AndroidValue "versionName\s+'([^']+)'") + '.apk'
 Invoke-Checked (Join-Path $taskTools 'aapt2.exe') @('link','-o',"$taskBuild\unsigned.apk",'-I',$taskAndroid,'--manifest',"$taskBuild\AndroidManifest.xml",'--java',"$taskBuild\generated",'--auto-add-overlay',"$taskBuild\resources.zip")
 $taskSources = @(Get-ChildItem -LiteralPath 'app\src\main\java', "$taskBuild\generated" -Recurse -Filter '*.java' | ForEach-Object { $_.FullName })
 $taskSourceList = Join-Path $taskBuild 'sources.txt'
@@ -52,7 +54,7 @@ $taskKeyStore = Join-Path $PSScriptRoot '.tools\studylock.keystore'
 if (-not (Test-Path -LiteralPath $taskKeyStore)) {
     Invoke-Checked (Join-Path $JdkPath 'bin\keytool.exe') @('-genkeypair','-keystore',$taskKeyStore,'-storepass','android','-keypass','android','-alias','studylock','-keyalg','RSA','-keysize','3072','-validity','3650','-dname','CN=StudyLock Local Development')
 }
-Invoke-Checked $taskJava @('-jar',(Join-Path $taskTools 'lib\apksigner.jar'),'sign','--ks',$taskKeyStore,'--ks-key-alias','studylock','--ks-pass','pass:android','--key-pass','pass:android','--out','dist\学习锁屏-0.1.0.apk',"$taskBuild\aligned.apk")
-Invoke-Checked $taskJava @('-jar',(Join-Path $taskTools 'lib\apksigner.jar'),'verify','--verbose','dist\学习锁屏-0.1.0.apk')
-Invoke-Checked (Join-Path $taskTools 'aapt2.exe') @('dump','badging','dist\学习锁屏-0.1.0.apk')
-Get-FileHash -LiteralPath 'dist\学习锁屏-0.1.0.apk' -Algorithm SHA256
+Invoke-Checked $taskJava @('-jar',(Join-Path $taskTools 'lib\apksigner.jar'),'sign','--ks',$taskKeyStore,'--ks-key-alias','studylock','--ks-pass','pass:android','--key-pass','pass:android','--out',$taskApk,"$taskBuild\aligned.apk")
+Invoke-Checked $taskJava @('-jar',(Join-Path $taskTools 'lib\apksigner.jar'),'verify','--verbose',$taskApk)
+Invoke-Checked (Join-Path $taskTools 'aapt2.exe') @('dump','badging',$taskApk)
+Get-FileHash -LiteralPath $taskApk -Algorithm SHA256

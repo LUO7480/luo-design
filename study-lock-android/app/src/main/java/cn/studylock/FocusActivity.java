@@ -41,7 +41,7 @@ public final class FocusActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         remaining = Ui.text(this, layout, "", 46, true);
         remaining.setGravity(Gravity.CENTER);
-        TextView hint = Ui.text(this, layout, trial ? "2 分钟结束后自动恢复\n请测试接听和拨打电话" : "23:00 自动恢复\n除电话外，屏幕操作已限制", 16, false);
+        TextView hint = Ui.text(this, layout, trial ? "试运行：锁 60 秒，休息 30 秒，再锁 30 秒\n请测试电话、提醒和离线急救入口" : "倒计时结束后休息 10 分钟\n到整点自动锁回，23:00 全部解除", 16, false);
         hint.setGravity(Gravity.CENTER);
         Ui.button(this, layout, "拨打电话", true, view -> {
             try {
@@ -55,6 +55,7 @@ public final class FocusActivity extends Activity {
                 Toast.makeText(this, "电话界面未能打开，已解除锁定", Toast.LENGTH_LONG).show();
             }
         });
+        Ui.button(this, layout, "离线急救解锁", false, view -> RecoveryUi.unlock(this, this::leave));
         setContentView(layout);
     }
 

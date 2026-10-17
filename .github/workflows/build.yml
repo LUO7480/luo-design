@@ -8,6 +8,7 @@ on:
       - 'study-lock-android/tests/**'
       - 'study-lock-android/*.gradle'
       - 'study-lock-android/gradle.properties'
+      - 'study-lock-android/recovery-helper.html'
       - '.github/workflows/build.yml'
 
 permissions:
@@ -49,20 +50,28 @@ jobs:
       - name: Verify schedule and automatic release rules
         run: |
           mkdir -p build/checks
-          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java tests/ScheduleTest.java
+          javac -encoding UTF-8 -d build/checks app/src/main/java/cn/studylock/Schedule.java app/src/main/java/cn/studylock/SessionTimes.java app/src/main/java/cn/studylock/RecoveryCrypto.java app/src/main/java/cn/studylock/RecoveryRules.java tests/ScheduleTest.java tests/RecoveryTest.java
           java -cp build/checks ScheduleTest
+          java -cp build/checks RecoveryTest
+          node tests/recovery-helper.test.cjs
 
-      - name: Build installable debug APK
-        run: gradle --no-daemon --console=plain :app:assembleDebug
+      - name: Build native APK
+        run: gradle --no-daemon --console=plain :app:assembleRelease
 
       - name: Verify APK signature and prepare download
+        env:
+          SIGNING_STORE_BASE64: ${{ secrets.STUDYLOCK_KEYSTORE_BASE64 }}
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          test -n "$SIGNING_STORE_BASE64"
+          printf '%s' "$SIGNING_STORE_BASE64" | base64 --decode > "$RUNNER_TEMP/studylock.keystore"
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/studylock-aligned.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$RUNNER_TEMP/studylock.keystore" --ks-key-alias studylock --ks-pass pass:android --key-pass pass:android --out dist/study-lock.apk "$RUNNER_TEMP/studylock-aligned.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose dist/study-lock.apk
+          cp recovery-helper.html dist/recovery-helper.html
           cd dist
-          sha256sum app-debug.apk > app-debug.apk.sha256
-          printf 'APK size: %s bytes\n' "$(stat -c %s app-debug.apk)" >> "$GITHUB_STEP_SUMMARY"
+          sha256sum study-lock.apk recovery-helper.html > SHA256SUMS
+          printf 'APK size: %s bytes\n' "$(stat -c %s study-lock.apk)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK
         id: apk
@@ -70,8 +79,9 @@ jobs:
         with:
           name: StudyLock-Android16-APK
           path: |
-            study-lock-android/dist/app-debug.apk
-            study-lock-android/dist/app-debug.apk.sha256
+            study-lock-android/dist/study-lock.apk
+            study-lock-android/dist/recovery-helper.html
+            study-lock-android/dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 3
 
@@ -79,4 +89,4 @@ jobs:
         env:
           APK_DOWNLOAD_URL: ${{ steps.apk.outputs.artifact-url }}
         run: |
-          printf '\n[Download APK archive](%s)\n\nSign in to GitHub, download the ZIP, and extract app-debug.apk.\n' "$APK_DOWNLOAD_URL" >> "$GITHUB_STEP_SUMMARY"
+          printf '\n[Download APK and offline recovery tool](%s)\n\nExtract study-lock.apk for your phone and recovery-helper.html for the code custodian.\n' "$APK_DOWNLOAD_URL" >> "$GITHUB_STEP_SUMMARY"

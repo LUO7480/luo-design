@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>学习锁屏 · 离线急救工具</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5ef;color:#1d2f27;font:16px/1.65 system-ui,sans-serif}main{max-width:560px;margin:32px auto;padding:24px}h1{font-size:27px;line-height:1.3}label{display:block;font-weight:650;margin:24px 0 8px}input,button{width:100%;font:inherit;border-radius:12px;padding:14px;border:1px solid #b7c9bd}input{background:white;min-width:0}button{background:#276950;color:white;border:0;margin-top:18px;cursor:pointer}button.secondary{background:white;color:#276950;border:1px solid #b7c9bd}output{display:block;font:700 38px/1.6 ui-monospace,monospace;text-align:center;min-height:72px;letter-spacing:4px;margin:20px 0 0}.note{font-size:14px;color:#4e6759}.status{min-height:28px;color:#9b3524}details{margin-top:30px}summary{cursor:pointer;font-weight:650}
+</style>
+<main>
+<h1>学习锁屏<br>离线急救工具</h1>
+<p>由保管急救码的家人使用。保存这个 HTML 文件到手机，用浏览器打开；断网时也能生成短码。</p>
+<label for="master">64 位长保管码</label>
+<input id="master" type="password" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="粘贴收到的保管码，允许空格分组">
+<label for="challenge">对方锁屏上显示的 12 位挑战号</label>
+<input id="challenge" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="例如按每组 4 位口述">
+<button id="generate" type="button">生成 8 位一次性码</button>
+<output id="answer" aria-live="polite"></output>
+<p id="status" class="status" role="status"></p>
+<button id="clear" class="secondary" type="button">清空本次输入</button>
+<p class="note">把 8 位数字通过普通电话读给对方。对方在锁屏内输入即可，不需要打开微信，也不需要两部手机校准时间。成功后，当晚限制解除，已启用的计划次日 19:00 恢复。</p>
+<details><summary>保管与失联时的使用方法</summary>
+<p>长保管码应保存到你自己的离线密码库或纸上。本网页不联网、不上传，也不持久保存输入；关闭页面后需要重新粘贴长码。</p>
+<p>挑战号 15 分钟有效，重启手机后失效。请以对方当前锁屏显示为准。成功验证后该挑战号作废，旧短码不能继续用于本次挑战。</p>
+<p>若两人完全无法通话，只能使用事先封存、在需要时可取得的纸质 64 位长码，或等待下一次休息。纸质长码在手机锁屏内切换到“纸质长码”后按组输入。</p>
+<p>此工具不包含任何真实长码。请勿把个人长码填进 GitHub、公开网页源码或截图。公开的只有算法与工具文件。</p>
+</details>
+</main>
+<script id="recovery-crypto">
+"use strict";
+const RecoveryCrypto = (() => {
+  const K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ]);
+  const rotate = (x,n) => (x >>> n) | (x << (32-n));
+  function sha256(data) {
+    const size = Math.ceil((data.length+9)/64)*64;
+    const padded = new Uint8Array(size);
+    padded.set(data); padded[data.length]=128;
+    const view = new DataView(padded.buffer);
+    view.setUint32(size-8, Math.floor(data.length/0x20000000));
+    view.setUint32(size-4, (data.length*8) >>> 0);
+    const state = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+    const words = new Uint32Array(64);
+    for (let block=0; block<size; block+=64) {
+      for (let i=0;i<16;i++) words[i]=view.getUint32(block+i*4);
+      for (let i=16;i<64;i++) {
+        const x=words[i-15], y=words[i-2];
+        const s0=rotate(x,7)^rotate(x,18)^(x>>>3), s1=rotate(y,17)^rotate(y,19)^(y>>>10);
+        words[i]=(words[i-16]+s0+words[i-7]+s1)>>>0;
+      }
+      let [a,b,c,d,e,f,g,h]=state;
+      for (let i=0;i<64;i++) {
+        const s1=rotate(e,6)^rotate(e,11)^rotate(e,25), choice=(e&f)^(~e&g);
+        const t1=(h+s1+choice+K[i]+words[i])>>>0;
+        const s0=rotate(a,2)^rotate(a,13)^rotate(a,22), majority=(a&b)^(a&c)^(b&c);
+        const t2=(s0+majority)>>>0;
+        h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+      }
+      const values=[a,b,c,d,e,f,g,h];
+      for(let i=0;i<8;i++) state[i]=(state[i]+values[i])>>>0;
+    }
+    const out=new Uint8Array(32), output=new DataView(out.buffer);
+    state.forEach((value,i)=>output.setUint32(i*4,value));
+    return out;
+  }
+  function hmacSha256(key,message) {
+    if(key.length>64) key=sha256(key);
+    const inner=new Uint8Array(64+message.length), outer=new Uint8Array(96);
+    for(let i=0;i<64;i++) {inner[i]=(key[i]||0)^0x36;outer[i]=(key[i]||0)^0x5c;}
+    inner.set(message,64); outer.set(sha256(inner),64);
+    return sha256(outer);
+  }
+  const normalize=value=>value.replace(/[\s-]/g,"");
+  const ascii=value=>Uint8Array.from(value,c=>c.charCodeAt(0));
+  function response(master,challenge) {
+    master=normalize(master); challenge=normalize(challenge);
+    if(!/^[0-9]{64}$/.test(master)||!/^[0-9]{12}$/.test(challenge)) throw new Error("长保管码需要 64 位数字，挑战号需要 12 位数字。请核对分组。");
+    const digest=hmacSha256(ascii(master),ascii("StudyLockRecovery:v2:"+challenge));
+    const offset=digest[31]&15;
+    const number=((digest[offset]&127)<<24)|((digest[offset+1]&255)<<16)|((digest[offset+2]&255)<<8)|(digest[offset+3]&255);
+    return String(number%100000000).padStart(8,"0");
+  }
+  return {sha256,hmacSha256,response};
+})();
+if(typeof module!=="undefined") module.exports=RecoveryCrypto;
+</script>
+<script>
+const master=document.getElementById("master"), challenge=document.getElementById("challenge");
+const answer=document.getElementById("answer"), status=document.getElementById("status");
+document.getElementById("generate").addEventListener("click",()=>{
+  try {answer.textContent=RecoveryCrypto.response(master.value,challenge.value);status.textContent="按顺序读出全部 8 位数字，包括开头的 0。";}
+  catch(error){answer.textContent="";status.textContent=error.message;}
+});
+document.getElementById("clear").addEventListener("click",()=>{master.value="";challenge.value="";answer.textContent="";status.textContent="已清空本次输入。";});
+</script>
+</html>
